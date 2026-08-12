@@ -1,5 +1,6 @@
 const { getDatabase } = require("../config/mongodb");
 const nodeBuilder = require("../builders/nodeBuilder");
+const relationshipBuilder = require("../builders/relationshipBuilder");
 
 async function process(job) {
 
@@ -18,6 +19,11 @@ async function process(job) {
         }
 
         await nodeBuilder.buildNode("Child", child);
+
+        await relationshipBuilder.buildRelationship("HAS_CHILD", {
+            parentId: child.parentId,
+            childId: child._id
+        });
 
     }
 
