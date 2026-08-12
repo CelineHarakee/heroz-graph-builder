@@ -1,4 +1,5 @@
 const { getDatabase } = require("../config/mongodb");
+const nodeBuilder = require("../builders/nodeBuilder");
 
 async function process(job) {
 
@@ -8,13 +9,16 @@ async function process(job) {
 
     if (job.entityType === "Child") {
 
-        const child = await db.collection("children").findOne({
-            _id: job.entityId
-        });
+    const child = await db.collection("children").findOne({
+        _id: job.entityId
+    });
 
-        console.log("Loaded Child:");
+    if (!child) {
+        console.log("❌ Child not found.");
+        return;
+    }
 
-        console.log(child);
+    await nodeBuilder.buildChildNode(child);
 
     }
 
