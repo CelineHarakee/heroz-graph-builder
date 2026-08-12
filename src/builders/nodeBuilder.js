@@ -1,37 +1,23 @@
-const driver = require("../config/neo4j");
+const childBuilder = require("./childBuilder");
+const parentBuilder = require("./parentBuilder");
 
-async function buildChildNode(child) {
-    const session = driver.session();
+async function buildNode(entityType, document) {
 
-    try {
-        const query = `
-            MERGE (c:Child {childId: $childId})
-            SET
-                c.firstName = $firstName,
-                c.lastName = $lastName,
-                c.age = $age,
-                c.gender = $gender,
-                c.cityId = $cityId,
-                c.isActive = $isActive
-        `;
+    switch (entityType) {
 
-        await session.run(query, {
-            childId: child._id,
-            firstName: child.firstName,
-            lastName: child.lastName,
-            age: child.age,
-            gender: child.gender,
-            cityId: child.cityId,
-            isActive: child.isActive
-        });
+    case "Child":
+        return await childBuilder.buildChildNode(document);
 
-        console.log(`✅ Child node created: ${child.firstName}`);
+    case "Parent":
+        return await parentBuilder.buildParentNode(document);
 
-    } finally {
-        await session.close();
-    }
+    default:
+        throw new Error(`Unsupported entity type: ${entityType}`);
+
+}
+
 }
 
 module.exports = {
-    buildChildNode
+    buildNode
 };
