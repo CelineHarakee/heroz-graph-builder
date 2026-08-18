@@ -19,7 +19,7 @@ const {
     calculateFinalScore
 } = require("../recommendation/scoringService");
 
-async function generateRecommendations(childId) {
+async function generateRecommendations(childId, limit = 5) {
 
     if (!childId) {
         throw new Error("childId is required");
@@ -136,9 +136,22 @@ eligibleCandidates.push({
 });
     }
 
+    eligibleCandidates.sort(
+    (a, b) => b.score - a.score
+    );
+
+    eligibleCandidates.forEach(
+    (candidate, index) => {
+        candidate.rank = index + 1;
+    }
+    );
+
+    const recommendations =
+    eligibleCandidates.slice(0, limit);
+
     return {
         child,
-        candidates: eligibleCandidates
+        recommendations
     };
 }
 

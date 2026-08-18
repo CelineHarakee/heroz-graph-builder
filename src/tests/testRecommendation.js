@@ -1,9 +1,9 @@
 const {
     connectMongoDB
-} = require("./config/mongodb");
+} = require("../config/mongodb");
 
 const recommendationService =
-    require("./services/recommendationService");
+    require("../services/recommendationService");
 
 async function test() {
 
@@ -15,7 +15,7 @@ async function test() {
 
         const result =
             await recommendationService.generateRecommendations(
-                childId
+                childId,3
             );
 
         console.log(

@@ -22,7 +22,41 @@ async function processQueue() {
         console.log("Operation:", job.operation);
         console.log("Status:", job.status);
 
-        await graphBuilderService.process(job);
+        try {
+
+            await graphBuilderService.process(job);
+
+            await queue.updateOne(
+                { _id: job._id },
+                {
+                    $set: {
+                        status: "PROCESSED",
+                        processedAt: new Date()
+                    }
+                }
+            );
+
+            console.log("✅ Job marked as PROCESSED");
+
+        } catch (error) {
+
+            console.error("❌ Job processing failed");
+            console.error(error);
+
+            await queue.updateOne(
+                { _id: job._id },
+                {
+                    $set: {
+                        status: "FAILED",
+                        error: error.message,
+                        failedAt: new Date()
+                    }
+                }
+            );
+
+            console.log("⚠️ Job marked as FAILED");
+
+        }
 
     }
 

@@ -1,6 +1,6 @@
 const {
     checkActivityEligibility
-} = require("./recommendation/eligibilityService");
+} = require("../recommendation/eligibilityService");
 
 function test() {
 

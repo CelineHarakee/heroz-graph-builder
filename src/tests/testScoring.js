@@ -7,7 +7,7 @@ const {
     calculateVendorReliability,
     calculateSessionSuitability,
     calculateFinalScore
-} = require("./recommendation/scoringService");
+} = require("../recommendation/scoringService");
 
 function test() {
 
