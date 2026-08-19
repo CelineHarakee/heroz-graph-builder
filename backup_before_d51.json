@@ -1,0 +1,696 @@
+{
+  "subcategories": [
+    {
+      "_id": "subcategory_robotics",
+      "name": "Robotics",
+      "categoryId": "category_stem",
+      "description": "Activities related to robotics and engineering."
+    },
+    {
+      "_id": "subcategory_coding",
+      "name": "Coding",
+      "categoryId": "category_stem",
+      "description": "Activities related to programming, computational thinking, and technology."
+    },
+    {
+      "_id": "subcategory_art",
+      "name": "Art",
+      "categoryId": "category_creative",
+      "description": "Activities related to drawing, painting, and creative expression."
+    },
+    {
+      "_id": "subcategory_sports",
+      "name": "Sports",
+      "categoryId": "category_sports",
+      "description": "Physical activities and sports programs."
+    }
+  ],
+  "children": [
+    {
+      "_id": "child_001",
+      "parentId": "parent_001",
+      "firstName": "Layal",
+      "lastName": "Ahmad",
+      "gender": "Female",
+      "dateOfBirth": "2018-05-12",
+      "age": 8,
+      "cityId": "city_jeddah",
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficultyPreference": "Beginner",
+        "experiencePreference": "Weekly Program"
+      },
+      "parentGoals": [
+        {
+          "goalId": "goal_problem_solving",
+          "priority": "High"
+        }
+      ],
+      "developmentProfile": [
+        {
+          "outcomeId": "problem_solving",
+          "score": 0.74,
+          "confidence": 0.82
+        }
+      ],
+      "interestSubcategories": [
+        "subcategory_robotics"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "child_002",
+      "parentId": "parent_002",
+      "firstName": "Mira",
+      "lastName": "Hassan",
+      "gender": "Female",
+      "dateOfBirth": "2017-08-20",
+      "age": 9,
+      "cityId": "city_jeddah",
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Individual",
+        "difficultyPreference": "Beginner",
+        "experiencePreference": "Weekly Program"
+      },
+      "parentGoals": [
+        {
+          "goalId": "goal_creativity",
+          "priority": "High"
+        }
+      ],
+      "developmentProfile": [
+        {
+          "outcomeId": "creativity",
+          "score": 0.81,
+          "confidence": 0.87
+        }
+      ],
+      "interestSubcategories": [
+        "subcategory_art"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "child_003",
+      "parentId": "parent_003",
+      "firstName": "Omar",
+      "lastName": "Saleh",
+      "gender": "Male",
+      "dateOfBirth": "2017-11-03",
+      "age": 9,
+      "cityId": "city_jeddah",
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficultyPreference": "Intermediate",
+        "experiencePreference": "Weekly Program"
+      },
+      "parentGoals": [
+        {
+          "goalId": "goal_problem_solving",
+          "priority": "High"
+        }
+      ],
+      "developmentProfile": [
+        {
+          "outcomeId": "problem_solving",
+          "score": 0.88,
+          "confidence": 0.91
+        }
+      ],
+      "interestSubcategories": [
+        "subcategory_robotics",
+        "subcategory_coding"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "child_004",
+      "parentId": "parent_004",
+      "firstName": "Noor",
+      "lastName": "Nasser",
+      "gender": "Female",
+      "dateOfBirth": "2018-02-14",
+      "age": 8,
+      "cityId": "city_jeddah",
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficultyPreference": "Beginner",
+        "experiencePreference": "Weekly Program"
+      },
+      "parentGoals": [],
+      "developmentProfile": [],
+      "interestSubcategories": [],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    }
+  ],
+  "parents": [
+    {
+      "_id": "parent_001",
+      "firstName": "Ahmad",
+      "lastName": "Ahmad",
+      "email": "ahmad@example.com",
+      "phone": "+966500000000",
+      "selectedGoals": [
+        "goal_problem_solving"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "parent_002",
+      "firstName": "Maya",
+      "lastName": "Hassan",
+      "email": "maya@example.com",
+      "phone": "+966511111111",
+      "selectedGoals": [
+        "goal_creativity"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "parent_003",
+      "firstName": "Khalid",
+      "lastName": "Saleh",
+      "email": "khalid@example.com",
+      "phone": "+966522222222",
+      "selectedGoals": [
+        "goal_problem_solving"
+      ],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "parent_004",
+      "firstName": "Sara",
+      "lastName": "Nasser",
+      "email": "sara@example.com",
+      "phone": "+966533333333",
+      "selectedGoals": [],
+      "isActive": true,
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "_id": "activity_001",
+      "title": "Junior Robotics",
+      "vendorId": "vendor_001",
+      "subcategoryId": "subcategory_robotics",
+      "categoryId": "category_stem",
+      "supportedGoals": [
+        "goal_problem_solving"
+      ],
+      "minimumAge": 7,
+      "maximumAge": 10,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficulty": "Beginner",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_002",
+      "title": "Advanced Robotics",
+      "vendorId": "vendor_001",
+      "subcategoryId": "subcategory_robotics",
+      "categoryId": "category_stem",
+      "supportedGoals": [
+        "goal_problem_solving"
+      ],
+      "minimumAge": 8,
+      "maximumAge": 12,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficulty": "Advanced",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_003",
+      "title": "Coding Club",
+      "vendorId": "vendor_002",
+      "subcategoryId": "subcategory_coding",
+      "categoryId": "category_stem",
+      "supportedGoals": [
+        "goal_problem_solving"
+      ],
+      "minimumAge": 7,
+      "maximumAge": 12,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficulty": "Beginner",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_004",
+      "title": "Art Studio",
+      "vendorId": "vendor_003",
+      "subcategoryId": "subcategory_art",
+      "categoryId": "category_creative",
+      "supportedGoals": [
+        "goal_creativity"
+      ],
+      "minimumAge": 7,
+      "maximumAge": 12,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Individual",
+        "difficulty": "Beginner",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_005",
+      "title": "Creative Drawing",
+      "vendorId": "vendor_003",
+      "subcategoryId": "subcategory_art",
+      "categoryId": "category_creative",
+      "supportedGoals": [
+        "goal_creativity"
+      ],
+      "minimumAge": 6,
+      "maximumAge": 10,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Individual",
+        "difficulty": "Beginner",
+        "experienceType": "One-time"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_006",
+      "title": "Football Academy",
+      "vendorId": "vendor_004",
+      "subcategoryId": "subcategory_sports",
+      "categoryId": "category_sports",
+      "supportedGoals": [
+        "goal_confidence"
+      ],
+      "minimumAge": 7,
+      "maximumAge": 12,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Outdoor",
+        "activityStyle": "Team",
+        "difficulty": "Beginner",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_007",
+      "title": "Sports Challenge",
+      "vendorId": "vendor_004",
+      "subcategoryId": "subcategory_sports",
+      "categoryId": "category_sports",
+      "supportedGoals": [
+        "goal_confidence"
+      ],
+      "minimumAge": 8,
+      "maximumAge": 12,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Outdoor",
+        "activityStyle": "Team",
+        "difficulty": "Advanced",
+        "experienceType": "One-time"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "activity_008",
+      "title": "Robotics & Art Lab",
+      "vendorId": "vendor_005",
+      "subcategoryId": "subcategory_robotics",
+      "categoryId": "category_stem",
+      "supportedGoals": [
+        "goal_creativity"
+      ],
+      "minimumAge": 7,
+      "maximumAge": 11,
+      "isActive": true,
+      "preferences": {
+        "indoorOutdoor": "Indoor",
+        "activityStyle": "Team",
+        "difficulty": "Beginner",
+        "experienceType": "Weekly Program"
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    }
+  ],
+  "graph_sync_queue": [
+    {
+      "_id": "6a7b136158c9dd9f0a788a6d",
+      "entityType": "Child",
+      "entityId": "child_001",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "createdAt": "2026-08-11T12:00:00.000Z",
+      "processedAt": "2026-08-18T11:06:12.067Z"
+    },
+    {
+      "_id": "6a7c30a658c9dd9f0a788a99",
+      "entityType": "Parent",
+      "entityId": "parent_001",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:06:14.714Z"
+    },
+    {
+      "_id": "6a7c5d6558c9dd9f0a788aaa",
+      "entityType": "Activity",
+      "entityId": "activity_001",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:06:18.414Z"
+    },
+    {
+      "_id": "6a7c648358c9dd9f0a788ab0",
+      "entityType": "Subcategory",
+      "entityId": "subcategory_robotics",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:19.531Z"
+    },
+    {
+      "_id": "6a7c6fef58c9dd9f0a788abb",
+      "entityType": "Goal",
+      "entityId": "goal_problem_solving",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:21.100Z"
+    },
+    {
+      "_id": "sync_subcategory_coding",
+      "entityType": "Subcategory",
+      "entityId": "subcategory_coding",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:22.325Z"
+    },
+    {
+      "_id": "sync_subcategory_art",
+      "entityType": "Subcategory",
+      "entityId": "subcategory_art",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:23.364Z"
+    },
+    {
+      "_id": "sync_subcategory_sports",
+      "entityType": "Subcategory",
+      "entityId": "subcategory_sports",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:24.375Z"
+    },
+    {
+      "_id": "sync_goal_creativity",
+      "entityType": "Goal",
+      "entityId": "goal_creativity",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:25.476Z"
+    },
+    {
+      "_id": "sync_goal_confidence",
+      "entityType": "Goal",
+      "entityId": "goal_confidence",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:26.495Z"
+    },
+    {
+      "_id": "sync_parent_002",
+      "entityType": "Parent",
+      "entityId": "parent_002",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:27.919Z"
+    },
+    {
+      "_id": "sync_parent_003",
+      "entityType": "Parent",
+      "entityId": "parent_003",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:29.491Z"
+    },
+    {
+      "_id": "sync_parent_004",
+      "entityType": "Parent",
+      "entityId": "parent_004",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:31.380Z"
+    },
+    {
+      "_id": "sync_child_002",
+      "entityType": "Child",
+      "entityId": "child_002",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:33.309Z"
+    },
+    {
+      "_id": "sync_child_003",
+      "entityType": "Child",
+      "entityId": "child_003",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:35.258Z"
+    },
+    {
+      "_id": "sync_child_004",
+      "entityType": "Child",
+      "entityId": "child_004",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:36.830Z"
+    },
+    {
+      "_id": "sync_activity_002",
+      "entityType": "Activity",
+      "entityId": "activity_002",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:38.926Z"
+    },
+    {
+      "_id": "sync_activity_003",
+      "entityType": "Activity",
+      "entityId": "activity_003",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:41.021Z"
+    },
+    {
+      "_id": "sync_activity_004",
+      "entityType": "Activity",
+      "entityId": "activity_004",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:44.694Z"
+    },
+    {
+      "_id": "sync_activity_005",
+      "entityType": "Activity",
+      "entityId": "activity_005",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:46.486Z"
+    },
+    {
+      "_id": "sync_activity_006",
+      "entityType": "Activity",
+      "entityId": "activity_006",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:47.973Z"
+    },
+    {
+      "_id": "sync_activity_007",
+      "entityType": "Activity",
+      "entityId": "activity_007",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:49.566Z"
+    },
+    {
+      "_id": "sync_activity_008",
+      "entityType": "Activity",
+      "entityId": "activity_008",
+      "operation": "CREATE",
+      "status": "PROCESSED",
+      "processedAt": "2026-08-18T11:10:51.128Z"
+    }
+  ],
+  "vendors": [
+    {
+      "_id": "vendor_001",
+      "name": "Heroz Robotics Academy",
+      "isActive": true,
+      "reliability": {
+        "sessionCompletionRate": null,
+        "cancellationRate": null,
+        "noShowRate": null,
+        "capacityAccuracy": null
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "vendor_002",
+      "name": "Heroz Coding Academy",
+      "isActive": true,
+      "reliability": {
+        "sessionCompletionRate": null,
+        "cancellationRate": null,
+        "noShowRate": null,
+        "capacityAccuracy": null
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "vendor_003",
+      "name": "Heroz Creative Studio",
+      "isActive": true,
+      "reliability": {
+        "sessionCompletionRate": null,
+        "cancellationRate": null,
+        "noShowRate": null,
+        "capacityAccuracy": null
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "vendor_004",
+      "name": "Heroz Sports Academy",
+      "isActive": true,
+      "reliability": {
+        "sessionCompletionRate": null,
+        "cancellationRate": null,
+        "noShowRate": null,
+        "capacityAccuracy": null
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    },
+    {
+      "_id": "vendor_005",
+      "name": "Heroz Innovation Lab",
+      "isActive": true,
+      "reliability": {
+        "sessionCompletionRate": null,
+        "cancellationRate": null,
+        "noShowRate": null,
+        "capacityAccuracy": null
+      },
+      "metadata": {
+        "version": 1,
+        "createdBy": "System"
+      }
+    }
+  ],
+  "goals": [
+    {
+      "_id": "goal_problem_solving",
+      "name": "Problem Solving",
+      "description": "Develop logical thinking and problem-solving skills.",
+      "isActive": true
+    },
+    {
+      "_id": "goal_creativity",
+      "name": "Creativity",
+      "description": "Develop creative thinking and self-expression.",
+      "isActive": true
+    },
+    {
+      "_id": "goal_confidence",
+      "name": "Confidence",
+      "description": "Develop confidence, communication, and self-assurance.",
+      "isActive": true
+    }
+  ]
+}
