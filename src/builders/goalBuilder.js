@@ -1,10 +1,21 @@
 const driver = require("../config/neo4j");
+const { toGraphId } = require("../utils/idUtils");
 
 async function buildGoalNode(goal) {
 
     const session = driver.session();
 
     try {
+
+        const name =
+            goal.basicInformation?.nameEn ??
+            goal.basicInformation?.nameAr ??
+            null;
+
+        const description =
+            goal.basicInformation?.descriptionEn ??
+            goal.basicInformation?.descriptionAr ??
+            null;
 
         const query = `
             MERGE (g:Goal {goalId: $goalId})
@@ -17,14 +28,14 @@ async function buildGoalNode(goal) {
 
         await session.run(query, {
 
-            goalId: goal._id,
-            name: goal.name,
-            description: goal.description,
-            isActive: goal.isActive
+            goalId: toGraphId(goal._id),
+            name,
+            description,
+            isActive: goal.isActive ?? null
 
         });
 
-        console.log(`✅ Goal node created: ${goal.name}`);
+        console.log(`✅ Goal node created: ${name}`);
 
     }
 
