@@ -1,31 +1,30 @@
 const driver = require("../config/neo4j");
+const { toGraphId } = require("../utils/idUtils");
 
 async function buildChildNode(child) {
     const session = driver.session();
 
     try {
+        const firstName = child.identity?.firstName ?? null;
+
         const query = `
             MERGE (c:Child {childId: $childId})
             SET
                 c.firstName = $firstName,
-                c.lastName = $lastName,
-                c.age = $age,
                 c.gender = $gender,
-                c.cityId = $cityId,
-                c.isActive = $isActive
+                c.ageGroup = $ageGroup,
+                c.status = $status
         `;
 
         await session.run(query, {
-            childId: child._id,
-            firstName: child.firstName,
-            lastName: child.lastName,
-            age: child.age,
-            gender: child.gender,
-            cityId: child.cityId,
-            isActive: child.isActive
+            childId: toGraphId(child._id),
+            firstName,
+            gender: child.identity?.gender ?? null,
+            ageGroup: child.identity?.ageGroup ?? null,
+            status: child.status ?? null
         });
 
-        console.log(`✅ Child node created: ${child.firstName}`);
+        console.log(`✅ Child node created: ${firstName}`);
 
     } finally {
         await session.close();
