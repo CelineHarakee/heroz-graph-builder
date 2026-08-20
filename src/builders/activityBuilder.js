@@ -1,10 +1,16 @@
 const driver = require("../config/neo4j");
+const { toGraphId } = require("../utils/idUtils");
 
 async function buildActivityNode(activity) {
 
     const session = driver.session();
 
     try {
+
+        const title =
+            activity.basicInformation?.nameEn ??
+            activity.basicInformation?.nameAr ??
+            null;
 
         const query = `
             MERGE (a:Activity {activityId: $activityId})
@@ -16,23 +22,30 @@ async function buildActivityNode(activity) {
                 a.subcategoryId = $subcategoryId,
                 a.minimumAge = $minimumAge,
                 a.maximumAge = $maximumAge,
-                a.isActive = $isActive
+                a.status = $status
         `;
 
         await session.run(query, {
 
-            activityId: activity._id,
-            title: activity.title,
-            vendorId: activity.vendorId,
-            categoryId: activity.categoryId,
-            subcategoryId: activity.subcategoryId,
-            minimumAge: activity.minimumAge,
-            maximumAge: activity.maximumAge,
-            isActive: activity.isActive
+            activityId: toGraphId(activity._id),
+            title,
+            vendorId: toGraphId(activity.vendorId),
+            categoryId: toGraphId(
+                activity.classification?.categoryId
+            ),
+            subcategoryId: toGraphId(
+                activity.classification?.subcategoryId
+            ),
+            minimumAge:
+                activity.eligibility?.minimumAge ?? null,
+            maximumAge:
+                activity.eligibility?.maximumAge ?? null,
+            status:
+                activity.basicInformation?.status ?? null
 
         });
 
-        console.log(`✅ Activity node created: ${activity.title}`);
+        console.log(`✅ Activity node created: ${title}`);
 
     }
 
