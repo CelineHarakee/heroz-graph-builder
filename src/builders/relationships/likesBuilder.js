@@ -31,9 +31,11 @@ async function build(childId, subcategoryId, properties = {}) {
                 r.confidence = $confidence,
                 r.evidenceCount = $evidenceCount,
                 r.lastUpdated = $lastUpdated
+
+            RETURN r
         `;
 
-        await session.run(query, {
+        const result = await session.run(query, {
             childId: toGraphId(childId),
             subcategoryId: toGraphId(subcategoryId),
             score: properties.score ?? null,
@@ -41,6 +43,13 @@ async function build(childId, subcategoryId, properties = {}) {
             evidenceCount: properties.evidenceCount ?? null,
             lastUpdated: normalizeDate(properties.lastUpdated)
         });
+
+        if (result.records.length === 0) {
+            throw new Error(
+                "LIKES relationship could not be created because the " +
+                "required Child or Subcategory Neo4j node was not found."
+            );
+        }
 
         console.log(`🔗 LIKES relationship created`);
 

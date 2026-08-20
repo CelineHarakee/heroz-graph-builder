@@ -1,4 +1,5 @@
 const driver = require("../config/neo4j");
+const { toGraphId } = require("../utils/idUtils");
 
 async function buildSubcategoryNode(subcategory) {
 
@@ -6,25 +7,31 @@ async function buildSubcategoryNode(subcategory) {
 
     try {
 
+        const name = subcategory.name ?? null;
+
+        const description = subcategory.description ?? null;
+
         const query = `
             MERGE (s:Subcategory {subcategoryId: $subcategoryId})
 
             SET
                 s.name = $name,
                 s.categoryId = $categoryId,
-                s.description = $description
+                s.description = $description,
+                s.isActive = $isActive
         `;
 
         await session.run(query, {
 
-            subcategoryId: subcategory._id,
-            name: subcategory.name,
-            categoryId: subcategory.categoryId,
-            description: subcategory.description
+            subcategoryId: toGraphId(subcategory._id),
+            name,
+            categoryId: toGraphId(subcategory.categoryId),
+            description,
+            isActive: subcategory.isActive ?? null
 
         });
 
-        console.log(`✅ Subcategory node created: ${subcategory.name}`);
+        console.log(`✅ Subcategory node created: ${name}`);
 
     }
 

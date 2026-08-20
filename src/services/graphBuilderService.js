@@ -1,13 +1,15 @@
 const { getDatabase } = require("../config/mongodb");
 const nodeBuilder = require("../builders/nodeBuilder");
 const relationshipBuilder = require("../builders/relationshipBuilder");
+const { toMongoId } = require("../utils/idUtils");
 
 const collections = {
     Child: "children",
     Parent: "parents",
     Activity: "activities",
     Subcategory: "subcategories",
-    Goal: "goals"
+    Goal: "goals",
+    ChildInterest: "child_interests"
 }; 
 
 async function process(job) {
@@ -23,11 +25,68 @@ async function process(job) {
     }
 
     const document = await db.collection(collectionName).findOne({
-        _id: job.entityId
+        _id: job.entityType === "ChildInterest"
+            ? toMongoId(job.entityId)
+            : job.entityId
     });
 
     if (!document) {
         throw new Error(`${job.entityType} not found.`);
+    }
+
+    if (job.entityType === "ChildInterest") {
+
+        if (!document.childId) {
+            throw new Error(
+                `ChildInterest ${document._id} is missing childId.`
+            );
+        }
+
+        if (!document.subcategoryId) {
+            throw new Error(
+                `ChildInterest ${document._id} is missing subcategoryId.`
+            );
+        }
+
+        const child = await db.collection("children").findOne({
+            _id: toMongoId(document.childId)
+        });
+
+        if (!child) {
+            throw new Error(
+                `ChildInterest ${document._id} references missing child: ` +
+                `${document.childId}`
+            );
+        }
+
+        const subcategory =
+            await db.collection("subcategories").findOne({
+                _id: toMongoId(document.subcategoryId)
+            });
+
+        if (!subcategory) {
+            throw new Error(
+                `ChildInterest ${document._id} references missing ` +
+                `subcategory: ${document.subcategoryId}`
+            );
+        }
+
+        await relationshipBuilder.buildRelationship("LIKES", {
+            childId: document.childId,
+            subcategoryId: document.subcategoryId,
+            properties: {
+                score:
+                    document.interestScore?.currentScore ?? null,
+                confidence:
+                    document.confidence?.currentScore ?? null,
+                evidenceCount:
+                    document.confidence?.evidenceCount ?? null,
+                lastUpdated:
+                    document.metadata?.updatedAt ?? null
+            }
+        });
+
+        return;
     }
 
     await nodeBuilder.buildNode(job.entityType, document);
@@ -73,15 +132,6 @@ async function process(job) {
             parentId: document.parentId,
             childId: document._id
         });
-
-        for (const subcategoryId of document.interestSubcategories) {
-
-            await relationshipBuilder.buildRelationship("LIKES", {
-                childId: document._id,
-                subcategoryId
-            });
-
-        }
 
     }
 }

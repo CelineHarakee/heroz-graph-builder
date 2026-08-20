@@ -25,7 +25,8 @@ async function buildRelationship(type, data) {
 
             return await likesBuilder.build(
                 data.childId,
-                data.subcategoryId
+                data.subcategoryId,
+                data.properties
             );
 
         case "HAS_GOAL":
