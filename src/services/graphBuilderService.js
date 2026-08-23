@@ -9,6 +9,7 @@ const collections = {
     Activity: "activities",
     Subcategory: "subcategories",
     Goal: "goal_library",
+    LearningOutcome: "learning_outcomes",
     ChildInterest: "child_interests"
 }; 
 
