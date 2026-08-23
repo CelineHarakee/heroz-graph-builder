@@ -8,7 +8,7 @@ const collections = {
     Parent: "parents",
     Activity: "activities",
     Subcategory: "subcategories",
-    Goal: "goals",
+    Goal: "goal_library",
     ChildInterest: "child_interests"
 }; 
 
@@ -91,18 +91,6 @@ async function process(job) {
 
     await nodeBuilder.buildNode(job.entityType, document);
 
-    if (job.entityType === "Parent") {
-
-    for (const goalId of document.selectedGoals) {
-
-        await relationshipBuilder.buildRelationship("HAS_GOAL", {
-            parentId: document._id,
-            goalId
-        });
-
-        }
-    }
-
     if (job.entityType === "Activity") {
 
         await relationshipBuilder.buildRelationship("CLASSIFIED_AS", {
@@ -132,6 +120,55 @@ async function process(job) {
             parentId: document.parentId,
             childId: document._id
         });
+
+        if (document.parentGoals !== null && document.parentGoals !== undefined) {
+
+            if (!Array.isArray(document.parentGoals)) {
+                throw new Error(
+                    `Child ${document._id} has an invalid parentGoals structure.`
+                );
+            }
+
+            const currentGoalIds = [];
+
+            for (const parentGoal of document.parentGoals) {
+
+                if (!parentGoal.goalId) {
+                    throw new Error(
+                        `Child ${document._id} has a parentGoals entry ` +
+                        `missing goalId.`
+                    );
+                }
+
+                const goal = await db.collection("goal_library").findOne({
+                    _id: toMongoId(parentGoal.goalId)
+                });
+
+                if (!goal) {
+                    throw new Error(
+                        `Child ${document._id} references missing goal: ` +
+                        `${parentGoal.goalId}`
+                    );
+                }
+
+                currentGoalIds.push(parentGoal.goalId);
+
+                await relationshipBuilder.buildRelationship("HAS_GOAL", {
+                    childId: document._id,
+                    goalId: parentGoal.goalId,
+                    properties: {
+                        priority: parentGoal.priority ?? null,
+                        status: parentGoal.status ?? null
+                    }
+                });
+
+            }
+
+            await relationshipBuilder.removeStaleHasGoalsForChild(
+                document._id,
+                currentGoalIds
+            );
+        }
 
     }
 }

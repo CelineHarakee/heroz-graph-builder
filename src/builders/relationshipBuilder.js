@@ -32,8 +32,9 @@ async function buildRelationship(type, data) {
         case "HAS_GOAL":
 
             return await hasGoalBuilder.build(
-                data.parentId,
-                data.goalId
+                data.childId,
+                data.goalId,
+                data.properties
             );
 
         case "SUPPORTS":
@@ -50,6 +51,14 @@ async function buildRelationship(type, data) {
 
 }
 
+async function removeStaleHasGoalsForChild(childId, currentGoalIds = []) {
+    return await hasGoalBuilder.removeStaleForChild(
+        childId,
+        currentGoalIds
+    );
+}
+
 module.exports = {
-    buildRelationship
+    buildRelationship,
+    removeStaleHasGoalsForChild
 };

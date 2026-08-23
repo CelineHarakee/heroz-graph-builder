@@ -7,15 +7,9 @@ async function buildGoalNode(goal) {
 
     try {
 
-        const name =
-            goal.basicInformation?.nameEn ??
-            goal.basicInformation?.nameAr ??
-            null;
+        const name = goal.name ?? null;
 
-        const description =
-            goal.basicInformation?.descriptionEn ??
-            goal.basicInformation?.descriptionAr ??
-            null;
+        const description = goal.description ?? null;
 
         const query = `
             MERGE (g:Goal {goalId: $goalId})
