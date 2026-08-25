@@ -18,9 +18,45 @@ function preference(value, confidenceScore) {
     return {
         value,
         confidenceScore,
-        source: "SYSTEM_TEST_V1",
+        source: "Onboarding",
         updatedAt: new Date()
     };
+}
+
+function metadata(testTag) {
+    return {
+        version: 1,
+        createdBy: "System",
+        testDataset: testTag,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSyncedToGraph: null
+    };
+}
+
+function validateMetadata(document, label, testTag) {
+    assert(document.metadata, `${label} metadata is required`);
+    assert(document.metadata.version === 1, `${label} metadata version must be 1`);
+    assert(
+        document.metadata.createdBy === "System",
+        `${label} metadata createdBy must be System`
+    );
+    assert(
+        document.metadata.testDataset === testTag,
+        `${label} metadata testDataset must be ${testTag}`
+    );
+    assert(
+        document.metadata.createdAt instanceof Date,
+        `${label} metadata createdAt must be a Date`
+    );
+    assert(
+        document.metadata.updatedAt instanceof Date,
+        `${label} metadata updatedAt must be a Date`
+    );
+    assert(
+        document.metadata.lastSyncedToGraph === null,
+        `${label} metadata lastSyncedToGraph must be null`
+    );
 }
 
 async function main() {
@@ -105,26 +141,64 @@ async function main() {
                 nameEn: "Riyadh",
                 nameAr: "الرياض",
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             }
         ];
 
         const categories = [
-            { _id: stemCategoryId, name: "STEM", description: "STEM activities", isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } },
-            { _id: artsCategoryId, name: "Arts", description: "Arts activities", isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } },
-            { _id: sportsCategoryId, name: "Sports", description: "Sports activities", isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } },
-            { _id: gamesLogicCategoryId, name: "Games & Logic", description: "Games and logic activities", isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } }
+            {
+                _id: stemCategoryId,
+                name: "STEM",
+                description: "STEM activities",
+                icon: "stem-test.svg",
+                displayOrder: 1,
+                isActive: true,
+                metadata: metadata(testTag)
+            },
+            {
+                _id: artsCategoryId,
+                name: "Arts",
+                description: "Arts activities",
+                icon: "arts-test.svg",
+                displayOrder: 2,
+                isActive: true,
+                metadata: metadata(testTag)
+            },
+            {
+                _id: sportsCategoryId,
+                name: "Sports",
+                description: "Sports activities",
+                icon: "sports-test.svg",
+                displayOrder: 3,
+                isActive: true,
+                metadata: metadata(testTag)
+            },
+            {
+                _id: gamesLogicCategoryId,
+                name: "Games & Logic",
+                description: "Games and logic activities",
+                icon: "games-logic-test.svg",
+                displayOrder: 4,
+                isActive: true,
+                metadata: metadata(testTag)
+            }
         ];
 
         const vendors = [
-            { _id: vendor1Id, name: "System Test Learning Hub", location: { cityId, districtId: null }, isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } },
-            { _id: vendor2Id, name: "System Test Activity Centre", location: { cityId, districtId: null }, isActive: true, metadata: { version: 1, createdBy: testTag, testDataset: testTag } }
+            {
+                _id: vendor1Id,
+                name: "System Test Learning Hub",
+                location: { cityId, districtId: null },
+                isActive: true,
+                metadata: metadata(testTag)
+            },
+            {
+                _id: vendor2Id,
+                name: "System Test Activity Centre",
+                location: { cityId, districtId: null },
+                isActive: true,
+                metadata: metadata(testTag)
+            }
         ];
 
         // --------------------------------------------------
@@ -182,13 +256,7 @@ async function main() {
                     transportationRequired: false
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -236,13 +304,7 @@ async function main() {
                     transportationRequired: false
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -256,12 +318,13 @@ async function main() {
                 name: "Robotics",
                 categoryId: stemCategoryId,
                 description: "Robotics activities",
+                keywords: [
+                    "robotics",
+                    "engineering",
+                    "stem"
+                ],
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -269,12 +332,13 @@ async function main() {
                 name: "Painting",
                 categoryId: artsCategoryId,
                 description: "Painting activities",
+                keywords: [
+                    "painting",
+                    "art",
+                    "creative"
+                ],
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -282,12 +346,13 @@ async function main() {
                 name: "Football",
                 categoryId: sportsCategoryId,
                 description: "Football activities",
+                keywords: [
+                    "football",
+                    "sports",
+                    "team"
+                ],
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -295,12 +360,13 @@ async function main() {
                 name: "Strategy Games",
                 categoryId: gamesLogicCategoryId,
                 description: "Strategy and logic activities",
+                keywords: [
+                    "strategy",
+                    "logic",
+                    "problem solving"
+                ],
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -315,11 +381,7 @@ async function main() {
                 description: "Ability to analyze problems and develop solutions.",
                 outcomeType: "Cognitive",
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -328,11 +390,7 @@ async function main() {
                 description: "Ability to collaborate effectively with others.",
                 outcomeType: "Social",
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -341,11 +399,7 @@ async function main() {
                 description: "Ability to generate original ideas and approaches.",
                 outcomeType: "Cognitive",
                 isActive: true,
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -367,11 +421,7 @@ async function main() {
                     }
                 ],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -387,11 +437,7 @@ async function main() {
                     }
                 ],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -407,11 +453,7 @@ async function main() {
                     }
                 ],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -470,13 +512,7 @@ async function main() {
 
                 status: "Active",
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -521,13 +557,7 @@ async function main() {
 
                 status: "Active",
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -572,13 +602,7 @@ async function main() {
 
                 status: "Active",
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -642,11 +666,7 @@ async function main() {
                     medicalRestrictions: []
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -699,11 +719,7 @@ async function main() {
                     medicalRestrictions: []
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -756,11 +772,7 @@ async function main() {
                     medicalRestrictions: []
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -818,11 +830,7 @@ async function main() {
                     medicalRestrictions: []
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -880,11 +888,7 @@ async function main() {
                     medicalRestrictions: []
                 },
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -917,13 +921,7 @@ async function main() {
 
                 scoreHistory: [],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -950,13 +948,7 @@ async function main() {
 
                 scoreHistory: [],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             },
 
             {
@@ -983,13 +975,7 @@ async function main() {
 
                 scoreHistory: [],
 
-                metadata: {
-                    version: 1,
-                    createdBy: testTag,
-                    testDataset: testTag,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }
+                metadata: metadata(testTag)
             }
         ];
 
@@ -1038,6 +1024,20 @@ async function main() {
             counts.child_interests === 3,
             "Expected 3 child interests"
         );
+
+        for (const collection of collections) {
+            const documents = await db.collection(collection)
+                .find({ "metadata.testDataset": testTag })
+                .toArray();
+
+            for (const document of documents) {
+                validateMetadata(
+                    document,
+                    `${collection} ${document._id}`,
+                    testTag
+                );
+            }
+        }
 
         // --------------------------------------------------
         // REFERENCE VALIDATION
@@ -1090,6 +1090,14 @@ async function main() {
                 assert(
                     typeof dimension.source === "string" && dimension.source.length > 0,
                     `Child ${child._id} preference source is required`
+                );
+                assert(
+                    [
+                        "Onboarding",
+                        "Behavior",
+                        "Feedback"
+                    ].includes(dimension.source),
+                    `Child ${child._id} has invalid preference source`
                 );
                 assert(
                     dimension.updatedAt instanceof Date,
@@ -1195,12 +1203,45 @@ async function main() {
             .find({ "metadata.testDataset": testTag })
             .toArray();
 
+        for (const category of categoryDocs) {
+            assert(
+                typeof category.icon === "string" &&
+                category.icon.length > 0,
+                `Category ${category._id} icon is required`
+            );
+
+            assert(
+                Number.isInteger(category.displayOrder) &&
+                category.displayOrder > 0,
+                `Category ${category._id} displayOrder must be a positive integer`
+            );
+        }
+
         for (const subcategory of await db.collection("subcategories")
             .find({ "metadata.testDataset": testTag })
             .toArray()) {
             assert(
                 categoryDocs.some((category) => category._id.equals(subcategory.categoryId)),
                 `Subcategory ${subcategory._id} references missing category`
+            );
+
+            assert(
+                Array.isArray(subcategory.keywords),
+                `Subcategory ${subcategory._id} keywords must be an array`
+            );
+
+            assert(
+                subcategory.keywords.length > 0,
+                `Subcategory ${subcategory._id} must contain at least one keyword`
+            );
+
+            assert(
+                subcategory.keywords.every(
+                    keyword =>
+                        typeof keyword === "string" &&
+                        keyword.trim().length > 0
+                ),
+                `Subcategory ${subcategory._id} contains an invalid keyword`
             );
         }
 
@@ -1334,6 +1375,10 @@ async function main() {
         console.log("City refs VALID");
         console.log("Activity category/subcategory consistency VALID");
         console.log("Child interest refs VALID");
+        console.log("Category fields VALID");
+        console.log("Subcategory fields VALID");
+        console.log("Preference sources VALID");
+        console.log("Metadata VALID");
         console.log("Neo4j NOT TOUCHED");
         console.log("========================================");
 
