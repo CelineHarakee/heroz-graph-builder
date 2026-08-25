@@ -26,9 +26,7 @@ async function process(job) {
     }
 
     const document = await db.collection(collectionName).findOne({
-        _id: job.entityType === "ChildInterest"
-            ? toMongoId(job.entityId)
-            : job.entityId
+        _id: toMongoId(job.entityId)
     });
 
     if (!document) {
