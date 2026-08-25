@@ -2,9 +2,10 @@ const hasChildBuilder = require("./relationships/hasChildBuilder");
 const classifiedAsBuilder = require("./relationships/classifiedAsBuilder");
 const likesBuilder = require("./relationships/likesBuilder");
 const hasGoalBuilder = require("./relationships/hasGoalBuilder");
-const supportsBuilder = require("./relationships/supportsBuilder");
 const relatesToOutcomeBuilder =
     require("./relationships/relatesToOutcomeBuilder");
+const supportsOutcomeBuilder =
+    require("./relationships/supportsOutcomeBuilder");
 
 async function buildRelationship(type, data) {
 
@@ -39,11 +40,12 @@ async function buildRelationship(type, data) {
                 data.properties
             );
 
-        case "SUPPORTS":
+        case "SUPPORTS_OUTCOME":
 
-            return await supportsBuilder.build(
+            return await supportsOutcomeBuilder.build(
                 data.activityId,
-                data.goalId
+                data.outcomeId,
+                data.properties
             );
 
         case "RELATES_TO_OUTCOME":
@@ -78,8 +80,19 @@ async function removeStaleRelatedOutcomesForGoal(
     );
 }
 
+async function removeStaleSupportedOutcomesForActivity(
+    activityId,
+    currentOutcomeIds = []
+) {
+    return await supportsOutcomeBuilder.removeStaleForActivity(
+        activityId,
+        currentOutcomeIds
+    );
+}
+
 module.exports = {
     buildRelationship,
     removeStaleHasGoalsForChild,
-    removeStaleRelatedOutcomesForGoal
+    removeStaleRelatedOutcomesForGoal,
+    removeStaleSupportedOutcomesForActivity
 };

@@ -1,4 +1,5 @@
 const driver = require("../../config/neo4j");
+const { toGraphId } = require("../../utils/idUtils");
 
 async function build(activityId, subcategoryId) {
 
@@ -14,8 +15,8 @@ async function build(activityId, subcategoryId) {
         `;
 
         await session.run(query, {
-            activityId,
-            subcategoryId
+            activityId: toGraphId(activityId),
+            subcategoryId: toGraphId(subcategoryId)
         });
 
         console.log("🔗 CLASSIFIED_AS relationship created");

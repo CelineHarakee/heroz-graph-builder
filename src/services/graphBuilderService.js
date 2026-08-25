@@ -184,21 +184,61 @@ async function process(job) {
 
         await relationshipBuilder.buildRelationship("CLASSIFIED_AS", {
             activityId: document._id,
-            subcategoryId: document.subcategoryId
+            subcategoryId: document.classification?.subcategoryId
         });
 
-        if (document.supportedGoals) {
+        if (!Array.isArray(document.learningOutcomes)) {
+            throw new Error(
+                `Activity ${document._id} has an invalid ` +
+                `learningOutcomes structure.`
+            );
+        }
 
-    for (const goalId of document.supportedGoals) {
+        for (const learningOutcome of document.learningOutcomes) {
 
-        await relationshipBuilder.buildRelationship("SUPPORTS", {
-            activityId: document._id,
-            goalId
-        });
+            if (!learningOutcome || !learningOutcome.outcomeId) {
+                throw new Error(
+                    `Activity ${document._id} has a learningOutcomes ` +
+                    `entry missing outcomeId.`
+                );
+            }
 
-    }
+            const outcome = await db.collection("learning_outcomes").findOne({
+                _id: toMongoId(learningOutcome.outcomeId)
+            });
 
-}
+            if (!outcome) {
+                throw new Error(
+                    `Activity ${document._id} references missing ` +
+                    `LearningOutcome: ${learningOutcome.outcomeId}`
+                );
+            }
+
+        }
+
+        for (const learningOutcome of document.learningOutcomes) {
+
+            await relationshipBuilder.buildRelationship(
+                "SUPPORTS_OUTCOME",
+                {
+                    activityId: document._id,
+                    outcomeId: learningOutcome.outcomeId,
+                    properties: {
+                        weight: learningOutcome.weight
+                    }
+                }
+            );
+
+        }
+
+        const currentOutcomeIds = document.learningOutcomes.map(
+            (learningOutcome) => learningOutcome.outcomeId
+        );
+
+        await relationshipBuilder.removeStaleSupportedOutcomesForActivity(
+            document._id,
+            currentOutcomeIds
+        );
 
     }
 
