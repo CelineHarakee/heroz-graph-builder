@@ -11,10 +11,10 @@ const DATASET = "SYSTEM_TEST_V1";
 
 const NODE_ENTITIES = [
     ["Parent", "parents"],
-    ["Child", "children"],
     ["Subcategory", "subcategories"],
     ["LearningOutcome", "learning_outcomes"],
     ["Goal", "goal_library"],
+    ["Child", "children"],
     ["Activity", "activities"]
 ];
 
@@ -27,6 +27,12 @@ async function main() {
 
     const db = getDatabase();
     const queue = db.collection("graph_sync_queue");
+
+    await queue.deleteMany({
+        testDataset: DATASET
+    });
+
+    console.log("🧹 Removed previous SYSTEM_TEST_V1 queue jobs");
 
     console.log("🚀 Starting Step 9 — Phase B");
     console.log("🔄 Two-pass MongoDB → Neo4j synchronization");
@@ -91,9 +97,21 @@ async function main() {
         ...relationshipJobs
     ];
 
-    console.log(`\n📦 Node jobs: ${nodeJobs.length}`);
-    console.log(`📦 Relationship jobs: ${relationshipJobs.length}`);
+    console.log(`\n📦 Entity jobs: ${nodeJobs.length}`);
+    console.log(`📦 ChildInterest jobs: ${relationshipJobs.length}`);
     console.log(`📦 Total jobs: ${allJobs.length}`);
+
+    if (nodeJobs.length !== 20) {
+        throw new Error(
+            `Expected 20 entity jobs, found ${nodeJobs.length}`
+        );
+    }
+
+    if (relationshipJobs.length !== 3) {
+        throw new Error(
+            `Expected 3 ChildInterest jobs, found ${relationshipJobs.length}`
+        );
+    }
 
     if (allJobs.length !== 23) {
         throw new Error(
@@ -112,15 +130,15 @@ async function main() {
     );
 
     // ==================================================
-    // 4. PASS 1 — CREATE ALL NODES
+    // 4. PASS 1 — DEPENDENCY-ORDERED ENTITY SYNCHRONIZATION
     // ==================================================
 
     console.log("\n========================================");
-    console.log("PHASE B1 — NODE SYNCHRONIZATION");
+    console.log("PHASE B1 — DEPENDENCY-ORDERED ENTITY SYNCHRONIZATION");
     console.log("========================================");
 
-    let nodeProcessed = 0;
-    let nodeFailed = 0;
+    let entityProcessed = 0;
+    let entityFailed = 0;
 
     for (const job of nodeJobs) {
         console.log("--------------------------------");
@@ -137,20 +155,20 @@ async function main() {
                     $set: {
                         status: "PROCESSED",
                         processedAt: new Date(),
-                        phase: "B1_NODES"
+                        phase: "B1_ENTITIES"
                     }
                 }
             );
 
-            nodeProcessed++;
+            entityProcessed++;
 
-            console.log("✅ Node job marked as PROCESSED");
+            console.log("✅ Entity job marked as PROCESSED");
 
         } catch (error) {
-            nodeFailed++;
+            entityFailed++;
 
             console.error(
-                `❌ ${job.entityType} node synchronization failed`
+                `❌ ${job.entityType} entity synchronization failed`
             );
             console.error(error);
 
@@ -161,28 +179,28 @@ async function main() {
                         status: "FAILED",
                         error: error.message,
                         failedAt: new Date(),
-                        phase: "B1_NODES"
+                        phase: "B1_ENTITIES"
                     }
                 }
             );
         }
     }
 
-    if (nodeFailed !== 0) {
+    if (entityFailed !== 0) {
         throw new Error(
-            `PHASE B1 FAILED: ${nodeFailed} node jobs failed.`
+            `PHASE B1 FAILED: ${entityFailed} entity jobs failed.`
         );
     }
 
     console.log("\n✅ PHASE B1 PASSED");
-    console.log(`Nodes synchronized: ${nodeProcessed}`);
+    console.log(`Entity jobs synchronized: ${entityProcessed}`);
 
     // ==================================================
-    // 5. PASS 2 — RELATIONSHIPS
+    // 5. PASS 2 — LEARNED-INTEREST SYNCHRONIZATION
     // ==================================================
 
     console.log("\n========================================");
-    console.log("PHASE B2 — RELATIONSHIP SYNCHRONIZATION");
+    console.log("PHASE B2 — LEARNED-INTEREST SYNCHRONIZATION");
     console.log("========================================");
 
     let relationshipProcessed = 0;
@@ -229,7 +247,7 @@ async function main() {
                     $set: {
                         status: "PROCESSED",
                         processedAt: new Date(),
-                        phase: "B2_RELATIONSHIPS"
+                        phase: "B2_CHILD_INTERESTS"
                     }
                 }
             );
@@ -255,7 +273,7 @@ async function main() {
                         status: "FAILED",
                         error: error.message,
                         failedAt: new Date(),
-                        phase: "B2_RELATIONSHIPS"
+                        phase: "B2_CHILD_INTERESTS"
                     }
                 }
             );
@@ -270,7 +288,7 @@ async function main() {
 
     console.log("\n✅ PHASE B2 PASSED");
     console.log(
-        `Relationships synchronized: ${relationshipProcessed}`
+        `ChildInterest jobs synchronized: ${relationshipProcessed}`
     );
 
     // ==================================================
@@ -292,14 +310,6 @@ async function main() {
         status: "PENDING"
     });
 
-    console.log("\n========================================");
-    console.log("PHASE B RESULT");
-    console.log("========================================");
-
-    console.log(`Jobs processed: ${processedCount}`);
-    console.log(`Jobs failed:    ${failedCount}`);
-    console.log(`Jobs pending:   ${pendingCount}`);
-
     if (
         processedCount !== 23 ||
         failedCount !== 0 ||
@@ -310,19 +320,28 @@ async function main() {
         );
     }
 
+    console.log("\n========================================");
+    console.log("✅ PHASE B PASSED");
+    console.log("========================================");
+    console.log("Entity jobs:         20");
+    console.log("ChildInterest jobs:   3");
+    console.log("Total jobs:          23");
     console.log("----------------------------------------");
-    console.log("MongoDB → Neo4j synchronization: VALID");
-    console.log("Node synchronization: PASSED");
-    console.log("Relationship synchronization: PASSED");
+    console.log("Dependency order: VALID");
+    console.log("Graph Builder processing: VALID");
+    console.log("Entity synchronization: PASSED");
+    console.log("Learned-interest synchronization: PASSED");
     console.log("Queue jobs: 23 PROCESSED");
     console.log("Failures: 0");
     console.log("Pending: 0");
-    console.log("Neo4j synchronization: PASSED");
+    console.log("MongoDB → Neo4j synchronization: PASSED");
     console.log("========================================");
+
+    process.exit(0);
 }
 
 main().catch(error => {
     console.error("\n❌ PHASE B FAILED");
     console.error(error);
-    process.exitCode = 1;
+    process.exit(1);
 });
