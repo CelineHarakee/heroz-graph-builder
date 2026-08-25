@@ -3,6 +3,8 @@ const classifiedAsBuilder = require("./relationships/classifiedAsBuilder");
 const likesBuilder = require("./relationships/likesBuilder");
 const hasGoalBuilder = require("./relationships/hasGoalBuilder");
 const supportsBuilder = require("./relationships/supportsBuilder");
+const relatesToOutcomeBuilder =
+    require("./relationships/relatesToOutcomeBuilder");
 
 async function buildRelationship(type, data) {
 
@@ -44,6 +46,14 @@ async function buildRelationship(type, data) {
                 data.goalId
             );
 
+        case "RELATES_TO_OUTCOME":
+
+            return await relatesToOutcomeBuilder.build(
+                data.goalId,
+                data.outcomeId,
+                data.properties
+            );
+
         default:
             throw new Error(`Unsupported relationship: ${type}`);
 
@@ -58,7 +68,18 @@ async function removeStaleHasGoalsForChild(childId, currentGoalIds = []) {
     );
 }
 
+async function removeStaleRelatedOutcomesForGoal(
+    goalId,
+    currentOutcomeIds = []
+) {
+    return await relatesToOutcomeBuilder.removeStaleForGoal(
+        goalId,
+        currentOutcomeIds
+    );
+}
+
 module.exports = {
     buildRelationship,
-    removeStaleHasGoalsForChild
+    removeStaleHasGoalsForChild,
+    removeStaleRelatedOutcomesForGoal
 };

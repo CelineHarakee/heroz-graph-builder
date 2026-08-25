@@ -92,6 +92,94 @@ async function process(job) {
 
     await nodeBuilder.buildNode(job.entityType, document);
 
+    if (job.entityType === "Goal") {
+
+        if (!Array.isArray(document.relatedOutcomes)) {
+            throw new Error(
+                `Goal ${document._id} has an invalid relatedOutcomes structure.`
+            );
+        }
+
+        const seenOutcomeIds = new Set();
+
+        for (const relatedOutcome of document.relatedOutcomes) {
+
+            if (!relatedOutcome || !relatedOutcome.outcomeId) {
+                throw new Error(
+                    `Goal ${document._id} has a relatedOutcomes entry ` +
+                    `missing outcomeId.`
+                );
+            }
+
+            const outcomeIdKey = String(relatedOutcome.outcomeId);
+
+            if (seenOutcomeIds.has(outcomeIdKey)) {
+                throw new Error(
+                    `Goal ${document._id} contains duplicate ` +
+                    `LearningOutcome: ${relatedOutcome.outcomeId}`
+                );
+            }
+
+            seenOutcomeIds.add(outcomeIdKey);
+
+            if (
+                typeof relatedOutcome.weight !== "number" ||
+                !Number.isFinite(relatedOutcome.weight) ||
+                relatedOutcome.weight < 0 ||
+                relatedOutcome.weight > 1
+            ) {
+                throw new Error(
+                    `Goal ${document._id} has invalid weight for ` +
+                    `LearningOutcome: ${relatedOutcome.outcomeId}`
+                );
+            }
+
+            const outcome = await db.collection("learning_outcomes").findOne({
+                _id: toMongoId(relatedOutcome.outcomeId)
+            });
+
+            if (!outcome) {
+                throw new Error(
+                    `Goal ${document._id} references missing ` +
+                    `LearningOutcome: ${relatedOutcome.outcomeId}`
+                );
+            }
+
+            if (outcome.isActive !== true) {
+                throw new Error(
+                    `Goal ${document._id} references inactive ` +
+                    `LearningOutcome: ${relatedOutcome.outcomeId}`
+                );
+            }
+
+        }
+
+        for (const relatedOutcome of document.relatedOutcomes) {
+
+            await relationshipBuilder.buildRelationship(
+                "RELATES_TO_OUTCOME",
+                {
+                    goalId: document._id,
+                    outcomeId: relatedOutcome.outcomeId,
+                    properties: {
+                        weight: relatedOutcome.weight
+                    }
+                }
+            );
+
+        }
+
+        const currentOutcomeIds = document.relatedOutcomes.map(
+            (relatedOutcome) => relatedOutcome.outcomeId
+        );
+
+        await relationshipBuilder.removeStaleRelatedOutcomesForGoal(
+            document._id,
+            currentOutcomeIds
+        );
+
+    }
+
     if (job.entityType === "Activity") {
 
         await relationshipBuilder.buildRelationship("CLASSIFIED_AS", {
