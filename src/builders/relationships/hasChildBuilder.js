@@ -1,4 +1,5 @@
 const driver = require("../../config/neo4j");
+const { toGraphId } = require("../../utils/idUtils");
 
 async function build(parentId, childId) {
 
@@ -10,15 +11,24 @@ async function build(parentId, childId) {
             MATCH (p:Parent {parentId: $parentId})
             MATCH (c:Child {childId: $childId})
 
-            MERGE (p)-[:HAS_CHILD]->(c)
+            MERGE (p)-[r:HAS_CHILD]->(c)
+
+            RETURN r
         `;
 
-        await session.run(query, {
-            parentId,
-            childId
+        const result = await session.run(query, {
+            parentId: toGraphId(parentId),
+            childId: toGraphId(childId)
         });
 
-        console.log(`🔗 HAS_CHILD relationship created`);
+        if (result.records.length === 0) {
+            throw new Error(
+                "HAS_CHILD could not be created because the required " +
+                "Parent or Child Neo4j node was not found."
+            );
+        }
+
+        console.log("🔗 HAS_CHILD relationship created");
 
     }
 
