@@ -52,6 +52,32 @@ function assertUniqueActivityIds(childName, candidates) {
     );
 }
 
+function assertNoRecommendationFields(childName, candidates) {
+    for (const candidate of candidates) {
+        const title =
+            candidate.activity?.title ?? "Unknown Activity";
+
+        const forbiddenFields = [
+            "score",
+            "rank",
+            "finalScore",
+            "eligible",
+            "eligibility",
+            "eligibilityStatus"
+        ];
+
+        for (const field of forbiddenFields) {
+            assert(
+                !Object.prototype.hasOwnProperty.call(
+                    candidate,
+                    field
+                ),
+                `${childName} ${title}: D4 must not return "${field}"`
+            );
+        }
+    }
+}
+
 function assertInterestEvidence(
     candidate,
     expectedInterest
@@ -99,6 +125,12 @@ function assertInterestEvidence(
         interest.evidenceCount,
         expectedInterest.evidenceCount
     );
+
+    assertEqual(
+        `${candidate.activity.title} interest lastUpdated`,
+        interest.lastUpdated,
+        expectedInterest.lastUpdated
+    );
 }
 
 function assertGoalEvidence(
@@ -125,6 +157,12 @@ function assertGoalEvidence(
         );
 
         assertEqual(
+            `${candidate.activity.title} ${expectedGoal.name} goalId`,
+            actualGoal.goalId,
+            expectedGoal.goalId
+        );
+
+        assertEqual(
             `${candidate.activity.title} ${expectedGoal.name} priority`,
             actualGoal.priority,
             expectedGoal.priority
@@ -140,6 +178,12 @@ function assertGoalEvidence(
             `${candidate.activity.title} ${expectedGoal.name} outcome`,
             actualGoal.learningOutcome.name,
             expectedGoal.outcome
+        );
+
+        assertEqual(
+            `${candidate.activity.title} ${expectedGoal.name} outcomeId`,
+            actualGoal.learningOutcome.outcomeId,
+            expectedGoal.outcomeId
         );
 
         assertClose(
@@ -389,7 +433,11 @@ async function main() {
                 confidence:
                     interest.confidence?.currentScore,
                 evidenceCount:
-                    interest.confidence?.evidenceCount
+                    interest.confidence?.evidenceCount,
+                lastUpdated:
+                    interest.metadata?.updatedAt
+                        ? interest.metadata.updatedAt.toISOString()
+                        : null
             };
         }
 
@@ -457,9 +505,11 @@ async function main() {
                 }
 
                 expectedGoals.push({
+                    goalId,
                     name: goalName,
                     priority: parentGoal.priority,
                     status: parentGoal.status,
+                    outcomeId: toGraphId(outcome._id),
                     outcome: outcome.name,
                     goalOutcomeWeight:
                         relatedOutcome.weight,
@@ -502,6 +552,11 @@ async function main() {
             saraCandidates
         );
 
+        assertNoRecommendationFields(
+            "Sara",
+            saraCandidates
+        );
+
         const saraRobotics =
             expectedInterest(sara, "Robotics");
 
@@ -529,8 +584,10 @@ async function main() {
                 goals: [
                     {
                         name: saraProblemSolving[0].name,
+                        goalId: saraProblemSolving[0].goalId,
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
+                        outcomeId: saraProblemSolving[0].outcomeId,
                         outcome: saraProblemSolving[0].outcome,
                         goalOutcomeWeight:
                             saraProblemSolving[0].goalOutcomeWeight,
@@ -538,8 +595,10 @@ async function main() {
                     },
                     {
                         name: saraTeamwork[0].name,
+                        goalId: saraTeamwork[0].goalId,
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
+                        outcomeId: saraTeamwork[0].outcomeId,
                         outcome: saraTeamwork[0].outcome,
                         goalOutcomeWeight:
                             saraTeamwork[0].goalOutcomeWeight,
@@ -575,8 +634,10 @@ async function main() {
                 goals: [
                     {
                         name: saraTeamwork[0].name,
+                        goalId: saraTeamwork[0].goalId,
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
+                        outcomeId: saraTeamwork[0].outcomeId,
                         outcome: saraTeamwork[0].outcome,
                         goalOutcomeWeight:
                             saraTeamwork[0].goalOutcomeWeight,
@@ -597,8 +658,10 @@ async function main() {
                 goals: [
                     {
                         name: saraProblemSolving[0].name,
+                        goalId: saraProblemSolving[0].goalId,
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
+                        outcomeId: saraProblemSolving[0].outcomeId,
                         outcome: saraProblemSolving[0].outcome,
                         goalOutcomeWeight:
                             saraProblemSolving[0].goalOutcomeWeight,
@@ -606,8 +669,10 @@ async function main() {
                     },
                     {
                         name: saraTeamwork[0].name,
+                        goalId: saraTeamwork[0].goalId,
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
+                        outcomeId: saraTeamwork[0].outcomeId,
                         outcome: saraTeamwork[0].outcome,
                         goalOutcomeWeight:
                             saraTeamwork[0].goalOutcomeWeight,
@@ -630,8 +695,10 @@ async function main() {
                 goals: [
                     {
                         name: saraProblemSolving[0].name,
+                        goalId: saraProblemSolving[0].goalId,
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
+                        outcomeId: saraProblemSolving[0].outcomeId,
                         outcome: saraProblemSolving[0].outcome,
                         goalOutcomeWeight:
                             saraProblemSolving[0].goalOutcomeWeight,
@@ -679,6 +746,11 @@ async function main() {
             omarCandidates
         );
 
+        assertNoRecommendationFields(
+            "Omar",
+            omarCandidates
+        );
+
         const omarFootball =
             expectedInterest(omar, "Football");
 
@@ -696,8 +768,10 @@ async function main() {
                 goals: [
                     {
                         name: omarTeamwork[0].name,
+                        goalId: omarTeamwork[0].goalId,
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
+                        outcomeId: omarTeamwork[0].outcomeId,
                         outcome: omarTeamwork[0].outcome,
                         goalOutcomeWeight:
                             omarTeamwork[0].goalOutcomeWeight,
@@ -719,8 +793,10 @@ async function main() {
                 goals: [
                     {
                         name: omarTeamwork[0].name,
+                        goalId: omarTeamwork[0].goalId,
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
+                        outcomeId: omarTeamwork[0].outcomeId,
                         outcome: omarTeamwork[0].outcome,
                         goalOutcomeWeight:
                             omarTeamwork[0].goalOutcomeWeight,
@@ -742,8 +818,10 @@ async function main() {
                 goals: [
                     {
                         name: omarTeamwork[0].name,
+                        goalId: omarTeamwork[0].goalId,
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
+                        outcomeId: omarTeamwork[0].outcomeId,
                         outcome: omarTeamwork[0].outcome,
                         goalOutcomeWeight:
                             omarTeamwork[0].goalOutcomeWeight,
@@ -790,6 +868,11 @@ async function main() {
             linaCandidates
         );
 
+        assertNoRecommendationFields(
+            "Lina",
+            linaCandidates
+        );
+
         const linaCreativity =
             expectedGoal(
                 lina,
@@ -804,8 +887,10 @@ async function main() {
                 goals: [
                     {
                         name: linaCreativity[0].name,
+                        goalId: linaCreativity[0].goalId,
                         priority: linaCreativity[0].priority,
                         status: linaCreativity[0].status,
+                        outcomeId: linaCreativity[0].outcomeId,
                         outcome: linaCreativity[0].outcome,
                         goalOutcomeWeight:
                             linaCreativity[0].goalOutcomeWeight,
@@ -826,8 +911,10 @@ async function main() {
                 goals: [
                     {
                         name: linaCreativity[0].name,
+                        goalId: linaCreativity[0].goalId,
                         priority: linaCreativity[0].priority,
                         status: linaCreativity[0].status,
+                        outcomeId: linaCreativity[0].outcomeId,
                         outcome: linaCreativity[0].outcome,
                         goalOutcomeWeight:
                             linaCreativity[0].goalOutcomeWeight,
@@ -877,6 +964,7 @@ async function main() {
         console.log("Duplicate activities: 0");
         console.log("Interest evidence:     VALID");
         console.log("Goal evidence:         VALID");
+        console.log("No D5 fields:          VALID");
         console.log("Evidence merging:      VALID");
         console.log("Evidence summaries:    VALID");
         console.log("D4 candidate discovery: PASSED");
