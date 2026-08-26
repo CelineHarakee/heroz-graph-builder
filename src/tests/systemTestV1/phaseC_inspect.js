@@ -6,6 +6,220 @@ const { toGraphId } = require("../../utils/idUtils");
 
 const DATASET = "SYSTEM_TEST_V1";
 
+function asNumber(value) {
+    if (
+        value !== null &&
+        value !== undefined &&
+        typeof value.toNumber === "function"
+    ) {
+        return value.toNumber();
+    }
+
+    return value;
+}
+
+function asPlainValue(value) {
+    if (value === undefined) {
+        return null;
+    }
+
+    const numericValue = asNumber(value);
+
+    if (
+        numericValue !== null &&
+        numericValue !== undefined &&
+        numericValue !== value
+    ) {
+        return numericValue;
+    }
+
+    return value;
+}
+
+function assertEqual(label, actual, expected) {
+    if (actual !== expected) {
+        throw new Error(
+            `${label}: expected ${expected}, found ${actual}`
+        );
+    }
+}
+
+function assertExactProperties(label, actualProperties, expectedProperties) {
+    for (const [property, expected] of Object.entries(expectedProperties)) {
+        const actual = asPlainValue(actualProperties[property]);
+
+        if (actual !== expected) {
+            throw new Error(
+                `${label}.${property}: expected ${expected}, found ${actual}`
+            );
+        }
+    }
+}
+
+function assertExactKeySet(label, actualKeys, expectedKeys) {
+    const actual = new Set(actualKeys);
+    const expected = new Set(expectedKeys);
+
+    for (const key of expected) {
+        if (!actual.has(key)) {
+            throw new Error(`${label}: missing ${key}`);
+        }
+    }
+
+    for (const key of actual) {
+        if (!expected.has(key)) {
+            throw new Error(`${label}: unexpected ${key}`);
+        }
+    }
+}
+
+function normalizeDate(value) {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date.toISOString();
+}
+
+function relationshipKey(...parts) {
+    return parts.join(" -> ");
+}
+
+async function loadDatasetCollection(db, collectionName, expectedCount) {
+    const documents = await db.collection(collectionName)
+        .find({ "metadata.testDataset": DATASET })
+        .toArray();
+
+    if (documents.length !== expectedCount) {
+        throw new Error(
+            `Expected ${expectedCount} ${collectionName} documents, ` +
+            `found ${documents.length}`
+        );
+    }
+
+    return documents;
+}
+
+async function verifyNodeSet(session, config) {
+    const result = await session.run(
+        `
+        MATCH (n:${config.label})
+        WHERE n.${config.idProperty} IN $ids
+        RETURN
+            n.${config.idProperty} AS id,
+            count(n) AS count,
+            collect(properties(n)) AS propertySets
+        ORDER BY id
+        `,
+        { ids: config.ids }
+    );
+
+    const actualIds = result.records.map((record) => record.get("id"));
+
+    assertExactKeySet(`${config.label} nodes`, actualIds, config.ids);
+
+    for (const record of result.records) {
+        const id = record.get("id");
+        const count = asNumber(record.get("count"));
+        const propertySets = record.get("propertySets");
+
+        if (count !== 1) {
+            throw new Error(
+                `${config.label} ${id}: expected exactly one node, ` +
+                `found ${count}`
+            );
+        }
+
+        assertExactProperties(
+            `${config.label} ${id}`,
+            propertySets[0],
+            config.expectedPropertiesById.get(id)
+        );
+    }
+
+    console.log(
+        `${config.label.padEnd(18)} ${actualIds.length} / ${config.ids.length}`
+    );
+
+    return actualIds.length;
+}
+
+async function verifyRelationships(session, config) {
+    const result = await session.run(config.query, config.params);
+    const actualByKey = new Map();
+
+    for (const record of result.records) {
+        const key = config.keyFromRecord(record);
+        const count = asNumber(record.get("count"));
+
+        actualByKey.set(key, {
+            count,
+            propertySets: record.get("propertySets")
+        });
+    }
+
+    assertExactKeySet(
+        `${config.type} relationships`,
+        Array.from(actualByKey.keys()),
+        Array.from(config.expectedByKey.keys())
+    );
+
+    for (const [key, expectedProperties] of config.expectedByKey) {
+        const actual = actualByKey.get(key);
+
+        if (!actual) {
+            throw new Error(`${config.type}: missing ${key}`);
+        }
+
+        if (actual.count !== 1) {
+            throw new Error(
+                `${config.type} ${key}: expected exactly one relationship, ` +
+                `found ${actual.count}`
+            );
+        }
+
+        assertExactProperties(
+            `${config.type} ${key}`,
+            actual.propertySets[0],
+            expectedProperties
+        );
+    }
+
+    console.log(
+        `${config.type.padEnd(24)} ${actualByKey.size} / ` +
+        `${config.expectedByKey.size}`
+    );
+
+    return actualByKey.size;
+}
+
+function expectedPropertiesById(documents, idProperty, propertyGetter) {
+    return new Map(
+        documents.map((document) => [
+            toGraphId(document._id),
+            {
+                [idProperty]: toGraphId(document._id),
+                ...propertyGetter(document)
+            }
+        ])
+    );
+}
+
+function buildExpectedRelationships(items, keyGetter, propertyGetter) {
+    return new Map(
+        items.map((item) => [
+            keyGetter(item),
+            propertyGetter(item)
+        ])
+    );
+}
+
 async function main() {
     await connectMongoDB();
 
@@ -17,371 +231,404 @@ async function main() {
         console.log("🔍 Inspecting Neo4j graph");
 
         // ==================================================
-        // 1. Load SYSTEM_TEST_V1 Mongo IDs
+        // 1. Load exact SYSTEM_TEST_V1 Mongo documents
         // ==================================================
 
-        const parents = await db.collection("parents")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
+        const parents = await loadDatasetCollection(db, "parents", 2);
+        const children = await loadDatasetCollection(db, "children", 3);
+        const subcategories =
+            await loadDatasetCollection(db, "subcategories", 4);
+        const outcomes =
+            await loadDatasetCollection(db, "learning_outcomes", 3);
+        const goals = await loadDatasetCollection(db, "goal_library", 3);
+        const activities = await loadDatasetCollection(db, "activities", 5);
+        const childInterests =
+            await loadDatasetCollection(db, "child_interests", 3);
 
-        const children = await db.collection("children")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
+        const parentIds = parents.map((document) => toGraphId(document._id));
+        const childIds = children.map((document) => toGraphId(document._id));
+        const subcategoryIds =
+            subcategories.map((document) => toGraphId(document._id));
+        const outcomeIds = outcomes.map((document) => toGraphId(document._id));
+        const goalIds = goals.map((document) => toGraphId(document._id));
+        const activityIds =
+            activities.map((document) => toGraphId(document._id));
 
-        const subcategories = await db.collection("subcategories")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
-
-        const outcomes = await db.collection("learning_outcomes")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
-
-        const goals = await db.collection("goal_library")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
-
-        const activities = await db.collection("activities")
-            .find({ "metadata.testDataset": DATASET })
-            .toArray();
-
-        // ==================================================
-        // 2. Expected node counts
-        // ==================================================
-
-        const expectedNodes = {
-            Parent: 2,
-            Child: 3,
-            Subcategory: 4,
-            LearningOutcome: 3,
-            Goal: 3,
-            Activity: 5
-        };
+        const nodeConfigs = [
+            {
+                label: "Parent",
+                idProperty: "parentId",
+                ids: parentIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    parents,
+                    "parentId",
+                    (parent) => ({
+                        firstName: parent.account?.firstName ?? null,
+                        lastName: parent.account?.lastName ?? null,
+                        status: parent.account?.status ?? null
+                    })
+                )
+            },
+            {
+                label: "Child",
+                idProperty: "childId",
+                ids: childIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    children,
+                    "childId",
+                    (child) => ({
+                        firstName: child.identity?.firstName ?? null,
+                        gender: child.identity?.gender ?? null,
+                        ageGroup: child.identity?.ageGroup ?? null,
+                        status: child.status ?? null
+                    })
+                )
+            },
+            {
+                label: "Subcategory",
+                idProperty: "subcategoryId",
+                ids: subcategoryIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    subcategories,
+                    "subcategoryId",
+                    (subcategory) => ({
+                        name: subcategory.name ?? null,
+                        categoryId: toGraphId(subcategory.categoryId),
+                        description: subcategory.description ?? null,
+                        isActive: subcategory.isActive ?? null
+                    })
+                )
+            },
+            {
+                label: "LearningOutcome",
+                idProperty: "outcomeId",
+                ids: outcomeIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    outcomes,
+                    "outcomeId",
+                    (outcome) => ({
+                        name: outcome.name ?? null,
+                        description: outcome.description ?? null,
+                        outcomeType: outcome.outcomeType ?? null,
+                        isActive: outcome.isActive ?? null
+                    })
+                )
+            },
+            {
+                label: "Goal",
+                idProperty: "goalId",
+                ids: goalIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    goals,
+                    "goalId",
+                    (goal) => ({
+                        name: goal.name ?? null,
+                        description: goal.description ?? null,
+                        isActive: goal.isActive ?? null
+                    })
+                )
+            },
+            {
+                label: "Activity",
+                idProperty: "activityId",
+                ids: activityIds,
+                expectedPropertiesById: expectedPropertiesById(
+                    activities,
+                    "activityId",
+                    (activity) => ({
+                        title:
+                            activity.basicInformation?.nameEn ??
+                            activity.basicInformation?.nameAr ??
+                            null,
+                        vendorId: toGraphId(activity.vendorId),
+                        categoryId: toGraphId(
+                            activity.classification?.categoryId
+                        ),
+                        subcategoryId: toGraphId(
+                            activity.classification?.subcategoryId
+                        ),
+                        minimumAge:
+                            activity.eligibility?.minimumAge ?? null,
+                        maximumAge:
+                            activity.eligibility?.maximumAge ?? null,
+                        status:
+                            activity.basicInformation?.status ?? null
+                    })
+                )
+            }
+        ];
 
         console.log("\n========================================");
-        console.log("PHASE C1 — NODE INSPECTION");
+        console.log("PHASE C1 — SCOPED NODE INSPECTION");
         console.log("========================================");
 
-        for (const [label, expected] of Object.entries(expectedNodes)) {
+        let controlledNodeTotal = 0;
 
-            const result = await session.run(
-                `
-                MATCH (n:${label})
-                RETURN count(n) AS count
-                `
-            );
-
-            const actual = result.records[0]
-                .get("count")
-                .toNumber();
-
-            console.log(
-                `${label.padEnd(18)} ${actual} / ${expected}`
-            );
-
-            if (actual !== expected) {
-                throw new Error(
-                    `Expected ${expected} ${label} nodes, found ${actual}`
-                );
-            }
+        for (const config of nodeConfigs) {
+            controlledNodeTotal += await verifyNodeSet(session, config);
         }
 
-        console.log("\n✅ Node counts PASSED");
+        assertEqual(
+            "Controlled Neo4j node total",
+            controlledNodeTotal,
+            20
+        );
+
+        console.log("\n✅ Scoped node validation PASSED");
 
         // ==================================================
-        // 3. Expected relationship counts
+        // 2. Build expected relationships from Mongo
         // ==================================================
 
-        const expectedRelationships = {
-            HAS_CHILD: 3,
-            LIKES: 3,
-            HAS_GOAL: 4,
-            RELATES_TO_OUTCOME: 3,
-            SUPPORTS_OUTCOME: 8,
-            CLASSIFIED_AS: 5
-        };
+        const expectedHasChild = buildExpectedRelationships(
+            children,
+            (child) => relationshipKey(
+                toGraphId(child.parentId),
+                toGraphId(child._id)
+            ),
+            () => ({})
+        );
+
+        const expectedHasGoal = buildExpectedRelationships(
+            children.flatMap((child) => (
+                Array.isArray(child.parentGoals)
+                    ? child.parentGoals.map((parentGoal) => ({
+                        child,
+                        parentGoal
+                    }))
+                    : []
+            )),
+            ({ child, parentGoal }) => relationshipKey(
+                toGraphId(child._id),
+                toGraphId(parentGoal.goalId)
+            ),
+            ({ parentGoal }) => ({
+                priority: parentGoal.priority ?? null,
+                status: parentGoal.status ?? null
+            })
+        );
+
+        const expectedLikes = buildExpectedRelationships(
+            childInterests,
+            (interest) => relationshipKey(
+                toGraphId(interest.childId),
+                toGraphId(interest.subcategoryId)
+            ),
+            (interest) => ({
+                score: interest.interestScore?.currentScore ?? null,
+                confidence: interest.confidence?.currentScore ?? null,
+                evidenceCount:
+                    interest.confidence?.evidenceCount ?? null,
+                lastUpdated:
+                    normalizeDate(interest.metadata?.updatedAt ?? null)
+            })
+        );
+
+        const expectedRelatesToOutcome = buildExpectedRelationships(
+            goals.flatMap((goal) => (
+                Array.isArray(goal.relatedOutcomes)
+                    ? goal.relatedOutcomes.map((relatedOutcome) => ({
+                        goal,
+                        relatedOutcome
+                    }))
+                    : []
+            )),
+            ({ goal, relatedOutcome }) => relationshipKey(
+                toGraphId(goal._id),
+                toGraphId(relatedOutcome.outcomeId)
+            ),
+            ({ relatedOutcome }) => ({
+                weight: relatedOutcome.weight ?? null
+            })
+        );
+
+        const expectedSupportsOutcome = buildExpectedRelationships(
+            activities.flatMap((activity) => (
+                Array.isArray(activity.learningOutcomes)
+                    ? activity.learningOutcomes.map((learningOutcome) => ({
+                        activity,
+                        learningOutcome
+                    }))
+                    : []
+            )),
+            ({ activity, learningOutcome }) => relationshipKey(
+                toGraphId(activity._id),
+                toGraphId(learningOutcome.outcomeId)
+            ),
+            ({ learningOutcome }) => ({
+                weight: learningOutcome.weight ?? null
+            })
+        );
+
+        const expectedClassifiedAs = buildExpectedRelationships(
+            activities,
+            (activity) => relationshipKey(
+                toGraphId(activity._id),
+                toGraphId(activity.classification?.subcategoryId)
+            ),
+            () => ({})
+        );
+
+        assertEqual("Expected HAS_CHILD count", expectedHasChild.size, 3);
+        assertEqual("Expected HAS_GOAL count", expectedHasGoal.size, 4);
+        assertEqual("Expected LIKES count", expectedLikes.size, 3);
+        assertEqual(
+            "Expected RELATES_TO_OUTCOME count",
+            expectedRelatesToOutcome.size,
+            3
+        );
+        assertEqual(
+            "Expected SUPPORTS_OUTCOME count",
+            expectedSupportsOutcome.size,
+            8
+        );
+        assertEqual(
+            "Expected CLASSIFIED_AS count",
+            expectedClassifiedAs.size,
+            5
+        );
+
+        const relationshipConfigs = [
+            {
+                type: "HAS_CHILD",
+                expectedByKey: expectedHasChild,
+                query: `
+                    MATCH (p:Parent)-[r:HAS_CHILD]->(c:Child)
+                    WHERE p.parentId IN $parentIds
+                    AND c.childId IN $childIds
+                    RETURN
+                        p.parentId AS fromId,
+                        c.childId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { parentIds, childIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            },
+            {
+                type: "HAS_GOAL",
+                expectedByKey: expectedHasGoal,
+                query: `
+                    MATCH (c:Child)-[r:HAS_GOAL]->(g:Goal)
+                    WHERE c.childId IN $childIds
+                    AND g.goalId IN $goalIds
+                    RETURN
+                        c.childId AS fromId,
+                        g.goalId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { childIds, goalIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            },
+            {
+                type: "LIKES",
+                expectedByKey: expectedLikes,
+                query: `
+                    MATCH (c:Child)-[r:LIKES]->(s:Subcategory)
+                    WHERE c.childId IN $childIds
+                    AND s.subcategoryId IN $subcategoryIds
+                    RETURN
+                        c.childId AS fromId,
+                        s.subcategoryId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { childIds, subcategoryIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            },
+            {
+                type: "RELATES_TO_OUTCOME",
+                expectedByKey: expectedRelatesToOutcome,
+                query: `
+                    MATCH (g:Goal)-[r:RELATES_TO_OUTCOME]->
+                        (o:LearningOutcome)
+                    WHERE g.goalId IN $goalIds
+                    AND o.outcomeId IN $outcomeIds
+                    RETURN
+                        g.goalId AS fromId,
+                        o.outcomeId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { goalIds, outcomeIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            },
+            {
+                type: "SUPPORTS_OUTCOME",
+                expectedByKey: expectedSupportsOutcome,
+                query: `
+                    MATCH (a:Activity)-[r:SUPPORTS_OUTCOME]->
+                        (o:LearningOutcome)
+                    WHERE a.activityId IN $activityIds
+                    AND o.outcomeId IN $outcomeIds
+                    RETURN
+                        a.activityId AS fromId,
+                        o.outcomeId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { activityIds, outcomeIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            },
+            {
+                type: "CLASSIFIED_AS",
+                expectedByKey: expectedClassifiedAs,
+                query: `
+                    MATCH (a:Activity)-[r:CLASSIFIED_AS]->(s:Subcategory)
+                    WHERE a.activityId IN $activityIds
+                    AND s.subcategoryId IN $subcategoryIds
+                    RETURN
+                        a.activityId AS fromId,
+                        s.subcategoryId AS toId,
+                        count(r) AS count,
+                        collect(properties(r)) AS propertySets
+                    ORDER BY fromId, toId
+                `,
+                params: { activityIds, subcategoryIds },
+                keyFromRecord: (record) => relationshipKey(
+                    record.get("fromId"),
+                    record.get("toId")
+                )
+            }
+        ];
 
         console.log("\n========================================");
-        console.log("PHASE C2 — RELATIONSHIP COUNTS");
+        console.log("PHASE C2 — SCOPED RELATIONSHIP INSPECTION");
         console.log("========================================");
 
-        for (const [type, expected] of Object.entries(
-            expectedRelationships
-        )) {
+        let controlledRelationshipTotal = 0;
 
-            const result = await session.run(
-                `
-                MATCH ()-[r:${type}]->()
-                RETURN count(r) AS count
-                `
-            );
-
-            const actual = result.records[0]
-                .get("count")
-                .toNumber();
-
-            console.log(
-                `${type.padEnd(24)} ${actual} / ${expected}`
-            );
-
-            if (actual !== expected) {
-                throw new Error(
-                    `Expected ${expected} ${type} relationships, found ${actual}`
-                );
-            }
+        for (const config of relationshipConfigs) {
+            controlledRelationshipTotal +=
+                await verifyRelationships(session, config);
         }
 
-        console.log("\n✅ Relationship counts PASSED");
-
-        // ==================================================
-        // 4. Verify Parent → Child
-        // ==================================================
-
-        console.log("\n========================================");
-        console.log("PHASE C3 — STRUCTURAL RELATIONSHIPS");
-        console.log("========================================");
-
-        const hasChildResult = await session.run(`
-            MATCH (p:Parent)-[:HAS_CHILD]->(c:Child)
-            RETURN count(*) AS count
-        `);
-
-        const hasChildCount =
-            hasChildResult.records[0].get("count").toNumber();
-
-        if (hasChildCount !== 3) {
-            throw new Error(
-                `Expected 3 HAS_CHILD relationships, found ${hasChildCount}`
-            );
-        }
-
-        // ==================================================
-        // 5. Verify Child → Goal properties
-        // ==================================================
-
-        const hasGoalResult = await session.run(`
-            MATCH (c:Child)-[r:HAS_GOAL]->(g:Goal)
-            RETURN
-                c.childId AS childId,
-                g.goalId AS goalId,
-                r.priority AS priority,
-                r.status AS status
-            ORDER BY childId, priority
-        `);
-
-        if (hasGoalResult.records.length !== 4) {
-            throw new Error(
-                `Expected 4 HAS_GOAL records, found ${hasGoalResult.records.length}`
-            );
-        }
-
-        for (const record of hasGoalResult.records) {
-
-            const priority = record.get("priority");
-            const status = record.get("status");
-
-            if (typeof priority !== "number") {
-                throw new Error(
-                    `Invalid HAS_GOAL priority for child ${record.get("childId")}`
-                );
-            }
-
-            if (status !== "Active") {
-                throw new Error(
-                    `Invalid HAS_GOAL status for child ${record.get("childId")}`
-                );
-            }
-        }
-
-        console.log("HAS_GOAL properties VALID");
-
-        // ==================================================
-        // 6. Verify LIKES properties
-        // ==================================================
-
-        const likesResult = await session.run(`
-            MATCH (c:Child)-[r:LIKES]->(s:Subcategory)
-            RETURN
-                c.childId AS childId,
-                s.subcategoryId AS subcategoryId,
-                r.score AS score,
-                r.confidence AS confidence,
-                r.evidenceCount AS evidenceCount,
-                r.lastUpdated AS lastUpdated
-            ORDER BY childId, subcategoryId
-        `);
-
-        if (likesResult.records.length !== 3) {
-            throw new Error(
-                `Expected 3 LIKES relationships, found ${likesResult.records.length}`
-            );
-        }
-
-        for (const record of likesResult.records) {
-
-            const score = record.get("score");
-            const confidence = record.get("confidence");
-            const evidenceCount = record.get("evidenceCount");
-
-            if (typeof score !== "number") {
-                throw new Error("LIKES score is not numeric");
-            }
-
-            if (typeof confidence !== "number") {
-                throw new Error("LIKES confidence is not numeric");
-            }
-
-            if (typeof evidenceCount !== "number") {
-                throw new Error("LIKES evidenceCount is not numeric");
-            }
-        }
-
-        console.log("LIKES properties VALID");
-
-        // ==================================================
-        // 7. Verify Goal → Outcome weights
-        // ==================================================
-
-        const goalOutcomeResult = await session.run(`
-            MATCH (g:Goal)-[r:RELATES_TO_OUTCOME]->(o:LearningOutcome)
-            RETURN
-                g.goalId AS goalId,
-                o.outcomeId AS outcomeId,
-                r.weight AS weight
-            ORDER BY goalId, outcomeId
-        `);
-
-        if (goalOutcomeResult.records.length !== 3) {
-            throw new Error(
-                `Expected 3 RELATES_TO_OUTCOME relationships, found ${goalOutcomeResult.records.length}`
-            );
-        }
-
-        for (const record of goalOutcomeResult.records) {
-
-            const weight = record.get("weight");
-
-            if (
-                typeof weight !== "number" ||
-                weight < 0 ||
-                weight > 1
-            ) {
-                throw new Error(
-                    "Invalid RELATES_TO_OUTCOME weight"
-                );
-            }
-        }
-
-        console.log("RELATES_TO_OUTCOME weights VALID");
-
-        // ==================================================
-        // 8. Verify Activity → Outcome weights
-        // ==================================================
-
-        const activityOutcomeResult = await session.run(`
-            MATCH (a:Activity)-[r:SUPPORTS_OUTCOME]->(o:LearningOutcome)
-            RETURN
-                a.activityId AS activityId,
-                o.outcomeId AS outcomeId,
-                r.weight AS weight
-            ORDER BY activityId, outcomeId
-        `);
-
-        if (activityOutcomeResult.records.length !== 8) {
-            throw new Error(
-                `Expected 8 SUPPORTS_OUTCOME relationships, found ${activityOutcomeResult.records.length}`
-            );
-        }
-
-        for (const record of activityOutcomeResult.records) {
-
-            const weight = record.get("weight");
-
-            if (
-                typeof weight !== "number" ||
-                weight < 0 ||
-                weight > 1
-            ) {
-                throw new Error(
-                    "Invalid SUPPORTS_OUTCOME weight"
-                );
-            }
-        }
-
-        console.log("SUPPORTS_OUTCOME weights VALID");
-
-        // ==================================================
-        // 9. Verify Activity → Subcategory
-        // ==================================================
-
-        const classificationResult = await session.run(`
-            MATCH (a:Activity)-[:CLASSIFIED_AS]->(s:Subcategory)
-            RETURN count(*) AS count
-        `);
-
-        const classificationCount =
-            classificationResult.records[0]
-                .get("count")
-                .toNumber();
-
-        if (classificationCount !== 5) {
-            throw new Error(
-                `Expected 5 CLASSIFIED_AS relationships, found ${classificationCount}`
-            );
-        }
-
-        console.log("CLASSIFIED_AS relationships VALID");
-
-        // ==================================================
-        // 10. Verify expected controlled graph total
-        // ==================================================
-
-        const totalNodesResult = await session.run(`
-            MATCH (n)
-            WHERE
-                n.parentId IS NOT NULL OR
-                n.childId IS NOT NULL OR
-                n.activityId IS NOT NULL OR
-                n.subcategoryId IS NOT NULL OR
-                n.goalId IS NOT NULL OR
-                n.outcomeId IS NOT NULL
-            RETURN count(n) AS count
-        `);
-
-        const totalNodes =
-            totalNodesResult.records[0]
-                .get("count")
-                .toNumber();
-
-        if (totalNodes !== 20) {
-            throw new Error(
-                `Expected 20 controlled Neo4j nodes, found ${totalNodes}`
-            );
-        }
-
-        const totalRelationshipsResult = await session.run(`
-            MATCH (a)-[r]->(b)
-            WHERE
-                type(r) IN [
-                    "HAS_CHILD",
-                    "LIKES",
-                    "HAS_GOAL",
-                    "RELATES_TO_OUTCOME",
-                    "SUPPORTS_OUTCOME",
-                    "CLASSIFIED_AS"
-                ]
-            RETURN count(r) AS count
-        `);
-
-        const totalRelationships =
-            totalRelationshipsResult.records[0]
-                .get("count")
-                .toNumber();
-
-        if (totalRelationships !== 26) {
-            throw new Error(
-                `Expected 26 controlled relationships, found ${totalRelationships}`
-            );
-        }
+        assertEqual(
+            "Controlled Neo4j relationship total",
+            controlledRelationshipTotal,
+            26
+        );
 
         // ==================================================
         // SUCCESS
@@ -392,15 +639,12 @@ async function main() {
         console.log("========================================");
         console.log("Controlled nodes:         20");
         console.log("Controlled relationships: 26");
-        console.log("Node counts:              VALID");
-        console.log("Relationship counts:      VALID");
-        console.log("HAS_CHILD:                VALID");
-        console.log("HAS_GOAL:                 VALID");
-        console.log("LIKES:                    VALID");
-        console.log("RELATES_TO_OUTCOME:       VALID");
-        console.log("SUPPORTS_OUTCOME:         VALID");
-        console.log("CLASSIFIED_AS:            VALID");
+        console.log("Mongo dataset counts:     VALID");
+        console.log("Node IDs:                 VALID");
+        console.log("Node properties:          VALID");
+        console.log("Relationship endpoints:   VALID");
         console.log("Relationship properties:  VALID");
+        console.log("Relationship duplicates:  VALID");
         console.log("Neo4j graph inspection:   PASSED");
         console.log("========================================");
 
@@ -410,8 +654,12 @@ async function main() {
     }
 }
 
-main().catch(error => {
-    console.error("\n❌ PHASE C FAILED");
-    console.error(error);
-    process.exit(1);
-});
+main()
+    .then(() => {
+        process.exit(0);
+    })
+    .catch(error => {
+        console.error("\n❌ PHASE C FAILED");
+        console.error(error);
+        process.exit(1);
+    });
