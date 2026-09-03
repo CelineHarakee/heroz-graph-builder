@@ -78,6 +78,20 @@ async function buildRecommendationContext(childId) {
         return null;
     }
 
+    const childInterests =
+        await recommendationDataService.getChildInterests(
+            child._id
+        );
+
+    const subcategoryIds = childInterests.map(
+        (interest) => interest.subcategoryId
+    );
+
+    const subcategories =
+        await recommendationDataService.getSubcategoriesByIds(
+            subcategoryIds
+        );
+
     const parent =
         child.parentId
             ? await recommendationDataService.getParent(
@@ -91,7 +105,11 @@ async function buildRecommendationContext(childId) {
     return {
         child,
         parent,
-        candidates
+        candidates,
+        interestContext: {
+            childInterests,
+            subcategories
+        }
     };
 }
 
