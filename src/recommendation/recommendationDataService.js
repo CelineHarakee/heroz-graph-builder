@@ -142,6 +142,167 @@ async function getGoalsByIds(goalIds) {
         .toArray();
 }
 
+async function collectionExists(collectionName) {
+    const db = getDatabase();
+
+    const collections = await db.listCollections(
+        { name: collectionName },
+        { nameOnly: true }
+    ).toArray();
+
+    return collections.length > 0;
+}
+
+function getUniqueMongoIds(values) {
+    if (!Array.isArray(values)) {
+        throw new Error("values must be an Array");
+    }
+
+    const idsByKey = new Map();
+
+    for (const value of values) {
+        if (value === null || value === undefined) {
+            continue;
+        }
+
+        const normalizedValue = toMongoId(value);
+
+        if (!(normalizedValue instanceof ObjectId)) {
+            continue;
+        }
+
+        idsByKey.set(
+            String(normalizedValue),
+            normalizedValue
+        );
+    }
+
+    return Array.from(idsByKey.values());
+}
+
+async function getExplorationBookingHistory(childId, candidateActivityIds) {
+
+    if (!Array.isArray(candidateActivityIds)) {
+        throw new Error("candidateActivityIds must be an Array");
+    }
+
+    const childMongoId = toMongoId(childId);
+
+    if (!(childMongoId instanceof ObjectId)) {
+        return {
+            source: "unavailable",
+            bookings: []
+        };
+    }
+
+    if (!await collectionExists("bookings")) {
+        return {
+            source: "unavailable",
+            bookings: []
+        };
+    }
+
+    const activityIds = getUniqueMongoIds(candidateActivityIds);
+
+    if (activityIds.length === 0) {
+        return {
+            source: "available",
+            bookings: []
+        };
+    }
+
+    const db = getDatabase();
+
+    const bookings = await db.collection("bookings")
+        .find({
+            "bookingDetails.childId": childMongoId,
+            "bookingDetails.activityId": {
+                $in: activityIds
+            }
+        })
+        .project({
+            _id: 1,
+            "bookingDetails.childId": 1,
+            "bookingDetails.activityId": 1,
+            "bookingDetails.sessionId": 1,
+            "bookingDetails.status": 1,
+            "bookingDetails.bookedAt": 1,
+            "attendance.status": 1,
+            "attendance.checkedInAt": 1,
+            "attendance.checkedOutAt": 1
+        })
+        .toArray();
+
+    return {
+        source: "available",
+        bookings
+    };
+}
+
+async function getExplorationRecommendationHistory(
+    childId,
+    candidateActivityIds
+) {
+
+    if (!Array.isArray(candidateActivityIds)) {
+        throw new Error("candidateActivityIds must be an Array");
+    }
+
+    const childMongoId = toMongoId(childId);
+
+    if (!(childMongoId instanceof ObjectId)) {
+        return {
+            source: "unavailable",
+            recommendations: []
+        };
+    }
+
+    if (!await collectionExists("recommendations")) {
+        return {
+            source: "unavailable",
+            recommendations: []
+        };
+    }
+
+    const activityIds = getUniqueMongoIds(candidateActivityIds);
+
+    if (activityIds.length === 0) {
+        return {
+            source: "available",
+            recommendations: []
+        };
+    }
+
+    const db = getDatabase();
+
+    const recommendations = await db.collection("recommendations")
+        .find({
+            childId: childMongoId,
+            "recommendedItems.activityId": {
+                $in: activityIds
+            }
+        })
+        .project({
+            _id: 1,
+            childId: 1,
+            "recommendationContext.requestedAt": 1,
+            "recommendedItems.activityId": 1,
+            "response.wasDisplayed": 1,
+            "response.displayedAt": 1,
+            "response.clickedActivityIds": 1,
+            "response.savedActivityIds": 1,
+            "response.bookedSessionIds": 1,
+            "response.dismissedActivityIds": 1,
+            "response.lastResponseAt": 1
+        })
+        .toArray();
+
+    return {
+        source: "available",
+        recommendations
+    };
+}
+
 module.exports = {
     getChild,
     getParent,
@@ -150,5 +311,7 @@ module.exports = {
     getSessions,
     getChildInterests,
     getSubcategoriesByIds,
-    getGoalsByIds
+    getGoalsByIds,
+    getExplorationBookingHistory,
+    getExplorationRecommendationHistory
 };

@@ -113,10 +113,50 @@ async function buildRecommendationContext(childId) {
     const candidates =
         await getOperationalCandidates(child._id);
 
+    const candidateActivityIdsByKey = new Map();
+
+    for (const candidate of candidates) {
+        const activityId =
+            candidate.currentActivity?._id ??
+            candidate.activity?.activityId;
+
+        if (activityId === null || activityId === undefined) {
+            continue;
+        }
+
+        candidateActivityIdsByKey.set(
+            String(activityId),
+            activityId
+        );
+    }
+
+    const candidateActivityIds =
+        Array.from(candidateActivityIdsByKey.values());
+
+    const bookingHistory =
+        await recommendationDataService.getExplorationBookingHistory(
+            child._id,
+            candidateActivityIds
+        );
+
+    const recommendationHistory =
+        await recommendationDataService.getExplorationRecommendationHistory(
+            child._id,
+            candidateActivityIds
+        );
+
     return {
         child,
         parent,
         candidates,
+        historyContext: {
+            bookings: bookingHistory.bookings,
+            recommendations: recommendationHistory.recommendations,
+            sources: {
+                bookings: bookingHistory.source,
+                recommendations: recommendationHistory.source
+            }
+        },
         goalContext: {
             goals
         },
