@@ -1,4 +1,5 @@
 const { getDatabase } = require("../config/mongodb");
+const { ObjectId } = require("mongodb");
 const { toMongoId } = require("../utils/idUtils");
 
 async function getChild(childId) {
@@ -98,6 +99,49 @@ async function getSubcategoriesByIds(subcategoryIds) {
         .toArray();
 }
 
+async function getGoalsByIds(goalIds) {
+
+    if (!Array.isArray(goalIds)) {
+        throw new Error("goalIds must be an Array");
+    }
+
+    const goalIdsByKey = new Map();
+
+    for (const goalId of goalIds) {
+        if (goalId === null || goalId === undefined) {
+            continue;
+        }
+
+        const normalizedGoalId = toMongoId(goalId);
+
+        if (!(normalizedGoalId instanceof ObjectId)) {
+            continue;
+        }
+
+        goalIdsByKey.set(
+            String(normalizedGoalId),
+            normalizedGoalId
+        );
+    }
+
+    const normalizedUniqueIds =
+        Array.from(goalIdsByKey.values());
+
+    if (normalizedUniqueIds.length === 0) {
+        return [];
+    }
+
+    const db = getDatabase();
+
+    return await db.collection("goal_library")
+        .find({
+            _id: {
+                $in: normalizedUniqueIds
+            }
+        })
+        .toArray();
+}
+
 module.exports = {
     getChild,
     getParent,
@@ -105,5 +149,6 @@ module.exports = {
     getVendor,
     getSessions,
     getChildInterests,
-    getSubcategoriesByIds
+    getSubcategoriesByIds,
+    getGoalsByIds
 };

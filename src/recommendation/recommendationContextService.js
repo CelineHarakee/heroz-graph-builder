@@ -99,6 +99,17 @@ async function buildRecommendationContext(childId) {
             )
             : null;
 
+    const goalIds = Array.isArray(child.parentGoals)
+        ? child.parentGoals.map(
+            (parentGoal) => parentGoal?.goalId
+        )
+        : [];
+
+    const goals =
+        await recommendationDataService.getGoalsByIds(
+            goalIds
+        );
+
     const candidates =
         await getOperationalCandidates(child._id);
 
@@ -106,6 +117,9 @@ async function buildRecommendationContext(childId) {
         child,
         parent,
         candidates,
+        goalContext: {
+            goals
+        },
         interestContext: {
             childInterests,
             subcategories
