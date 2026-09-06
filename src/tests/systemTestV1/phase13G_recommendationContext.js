@@ -23,17 +23,6 @@ function assertEqual(label, actual, expected) {
     }
 }
 
-function assertClose(label, actual, expected, tolerance = 0.000001) {
-    if (
-        typeof actual !== "number" ||
-        Math.abs(actual - expected) > tolerance
-    ) {
-        throw new Error(
-            `${label}: expected ${expected}, found ${actual}`
-        );
-    }
-}
-
 function findCandidateByTitle(context, title) {
     return context.candidates.find(
         (candidate) => candidate.activity?.title === title
@@ -71,6 +60,32 @@ function requireGoal(candidate, name) {
     assert(
         goal,
         `${candidate.activity.title}: missing goal "${name}"`
+    );
+
+    assert(goal.goalId, `${candidate.activity.title}: goal "${name}" missing goalId`);
+    assert(
+        goal.learningOutcome,
+        `${candidate.activity.title}: goal "${name}" missing learningOutcome`
+    );
+    assert(
+        goal.learningOutcome.outcomeId,
+        `${candidate.activity.title}: goal "${name}" missing outcomeId`
+    );
+    assert(
+        goal.learningOutcome.name,
+        `${candidate.activity.title}: goal "${name}" missing outcome name`
+    );
+
+    assert(
+        !Object.prototype.hasOwnProperty.call(goal, "goalOutcomeWeight"),
+        `${candidate.activity.title}: goal "${name}" must not include ` +
+        `goalOutcomeWeight`
+    );
+
+    assert(
+        !Object.prototype.hasOwnProperty.call(goal, "activityOutcomeWeight"),
+        `${candidate.activity.title}: goal "${name}" must not include ` +
+        `activityOutcomeWeight`
     );
 
     return goal;
@@ -335,13 +350,7 @@ function assertLinaEvidence(context) {
     }
 
     const creativeRobotics = requireCandidate(context, "Creative Robotics");
-    const creativity = requireGoal(creativeRobotics, "Grow Creativity");
-
-    assertClose(
-        "Lina Creative Robotics activityOutcomeWeight",
-        creativity.activityOutcomeWeight,
-        0.60
-    );
+    requireGoal(creativeRobotics, "Grow Creativity");
 }
 
 function assertContextShape(context, child, expectedCount) {

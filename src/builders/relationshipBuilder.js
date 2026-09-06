@@ -44,16 +44,14 @@ async function buildRelationship(type, data) {
 
             return await supportsOutcomeBuilder.build(
                 data.activityId,
-                data.outcomeId,
-                data.properties
+                data.outcomeId
             );
 
         case "RELATES_TO_OUTCOME":
 
             return await relatesToOutcomeBuilder.build(
                 data.goalId,
-                data.outcomeId,
-                data.properties
+                data.outcomeId
             );
 
         default:

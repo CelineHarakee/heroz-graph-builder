@@ -186,18 +186,22 @@ function assertGoalEvidence(
             expectedGoal.outcomeId
         );
 
-        assertClose(
+        assert(
+            !Object.prototype.hasOwnProperty.call(
+                actualGoal,
+                "goalOutcomeWeight"
+            ),
             `${candidate.activity.title} ${expectedGoal.name} ` +
-            `goalOutcomeWeight`,
-            actualGoal.goalOutcomeWeight,
-            expectedGoal.goalOutcomeWeight
+            `must not include goalOutcomeWeight`
         );
 
-        assertClose(
+        assert(
+            !Object.prototype.hasOwnProperty.call(
+                actualGoal,
+                "activityOutcomeWeight"
+            ),
             `${candidate.activity.title} ${expectedGoal.name} ` +
-            `activityOutcomeWeight`,
-            actualGoal.activityOutcomeWeight,
-            expectedGoal.activityOutcomeWeight
+            `must not include activityOutcomeWeight`
         );
     }
 }
@@ -511,8 +515,6 @@ async function main() {
                     status: parentGoal.status,
                     outcomeId: toGraphId(outcome._id),
                     outcome: outcome.name,
-                    goalOutcomeWeight:
-                        relatedOutcome.weight,
                     matchingActivities
                 });
             }
@@ -588,10 +590,7 @@ async function main() {
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
                         outcomeId: saraProblemSolving[0].outcomeId,
-                        outcome: saraProblemSolving[0].outcome,
-                        goalOutcomeWeight:
-                            saraProblemSolving[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.90
+                        outcome: saraProblemSolving[0].outcome
                     },
                     {
                         name: saraTeamwork[0].name,
@@ -599,10 +598,7 @@ async function main() {
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
                         outcomeId: saraTeamwork[0].outcomeId,
-                        outcome: saraTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            saraTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.50
+                        outcome: saraTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -638,10 +634,7 @@ async function main() {
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
                         outcomeId: saraTeamwork[0].outcomeId,
-                        outcome: saraTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            saraTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.95
+                        outcome: saraTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -662,10 +655,7 @@ async function main() {
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
                         outcomeId: saraProblemSolving[0].outcomeId,
-                        outcome: saraProblemSolving[0].outcome,
-                        goalOutcomeWeight:
-                            saraProblemSolving[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.85
+                        outcome: saraProblemSolving[0].outcome
                     },
                     {
                         name: saraTeamwork[0].name,
@@ -673,10 +663,7 @@ async function main() {
                         priority: saraTeamwork[0].priority,
                         status: saraTeamwork[0].status,
                         outcomeId: saraTeamwork[0].outcomeId,
-                        outcome: saraTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            saraTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.70
+                        outcome: saraTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -699,10 +686,7 @@ async function main() {
                         priority: saraProblemSolving[0].priority,
                         status: saraProblemSolving[0].status,
                         outcomeId: saraProblemSolving[0].outcomeId,
-                        outcome: saraProblemSolving[0].outcome,
-                        goalOutcomeWeight:
-                            saraProblemSolving[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.80
+                        outcome: saraProblemSolving[0].outcome
                     }
                 ],
                 summary: [
@@ -772,10 +756,7 @@ async function main() {
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
                         outcomeId: omarTeamwork[0].outcomeId,
-                        outcome: omarTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            omarTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.50
+                        outcome: omarTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -797,10 +778,7 @@ async function main() {
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
                         outcomeId: omarTeamwork[0].outcomeId,
-                        outcome: omarTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            omarTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.95
+                        outcome: omarTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -822,10 +800,7 @@ async function main() {
                         priority: omarTeamwork[0].priority,
                         status: omarTeamwork[0].status,
                         outcomeId: omarTeamwork[0].outcomeId,
-                        outcome: omarTeamwork[0].outcome,
-                        goalOutcomeWeight:
-                            omarTeamwork[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.70
+                        outcome: omarTeamwork[0].outcome
                     }
                 ],
                 summary: [
@@ -891,10 +866,7 @@ async function main() {
                         priority: linaCreativity[0].priority,
                         status: linaCreativity[0].status,
                         outcomeId: linaCreativity[0].outcomeId,
-                        outcome: linaCreativity[0].outcome,
-                        goalOutcomeWeight:
-                            linaCreativity[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.90
+                        outcome: linaCreativity[0].outcome
                     }
                 ],
                 summary: [
@@ -915,10 +887,7 @@ async function main() {
                         priority: linaCreativity[0].priority,
                         status: linaCreativity[0].status,
                         outcomeId: linaCreativity[0].outcomeId,
-                        outcome: linaCreativity[0].outcome,
-                        goalOutcomeWeight:
-                            linaCreativity[0].goalOutcomeWeight,
-                        activityOutcomeWeight: 0.60
+                        outcome: linaCreativity[0].outcome
                     }
                 ],
                 summary: [

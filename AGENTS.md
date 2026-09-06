@@ -69,15 +69,36 @@ If a required field cannot be identified, stop and report the issue instead of g
 
 Use exactly these V1 weights:
 
-- Interest Relevance: 0.30
-- Child Preference Match: 0.15
-- Goal & Outcome Relevance: 0.15
-- Exploration & Novelty: 0.12
-- Previous Behavioral Affinity: 0.08
-- Vendor Reliability: 0.08
-- Session Suitability: 0.12
+- Interest: 0.33
+- Preference: 0.16
+- Goal: 0.16
+- Exploration: 0.13
+- Behavior: 0.13
+- Session: 0.09
+
+Total: 1.00
 
 Do not introduce additional weighted recommendation factors.
+
+Vendor Reliability is not a canonical D5 scoring factor in V1.
+
+## Outcome Relationships
+
+V1 Goal-to-LearningOutcome and Activity-to-LearningOutcome links are
+categorical semantic links.
+
+MongoDB stores Goal.relatedOutcomes[] items with outcomeId only.
+
+MongoDB stores Activity.learningOutcomes[] items with outcomeId and
+optional descriptive evidenceGuidance.
+
+No numeric relationship weight, percentage, strength, confidence, or
+importance value exists on these links.
+
+Neo4j RELATES_TO_OUTCOME and SUPPORTS_OUTCOME relationships have no V1
+properties.
+
+Child HAS_GOAL remains different and retains priority and status.
 
 ## Missing Data
 

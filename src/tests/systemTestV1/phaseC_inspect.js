@@ -56,6 +56,14 @@ function assertExactProperties(label, actualProperties, expectedProperties) {
     }
 }
 
+function assertMissingProperties(label, actualProperties, propertyNames = []) {
+    for (const property of propertyNames) {
+        if (Object.prototype.hasOwnProperty.call(actualProperties, property)) {
+            throw new Error(`${label}: unexpected ${property}`);
+        }
+    }
+}
+
 function assertExactKeySet(label, actualKeys, expectedKeys) {
     const actual = new Set(actualKeys);
     const expected = new Set(expectedKeys);
@@ -188,6 +196,12 @@ async function verifyRelationships(session, config) {
             `${config.type} ${key}`,
             actual.propertySets[0],
             expectedProperties
+        );
+
+        assertMissingProperties(
+            `${config.type} ${key}`,
+            actual.propertySets[0],
+            config.forbiddenProperties
         );
     }
 
@@ -437,9 +451,7 @@ async function main() {
                 toGraphId(goal._id),
                 toGraphId(relatedOutcome.outcomeId)
             ),
-            ({ relatedOutcome }) => ({
-                weight: relatedOutcome.weight ?? null
-            })
+            () => ({})
         );
 
         const expectedSupportsOutcome = buildExpectedRelationships(
@@ -455,9 +467,7 @@ async function main() {
                 toGraphId(activity._id),
                 toGraphId(learningOutcome.outcomeId)
             ),
-            ({ learningOutcome }) => ({
-                weight: learningOutcome.weight ?? null
-            })
+            () => ({})
         );
 
         const expectedClassifiedAs = buildExpectedRelationships(
@@ -565,6 +575,7 @@ async function main() {
                     ORDER BY fromId, toId
                 `,
                 params: { goalIds, outcomeIds },
+                forbiddenProperties: ["weight"],
                 keyFromRecord: (record) => relationshipKey(
                     record.get("fromId"),
                     record.get("toId")
@@ -586,6 +597,7 @@ async function main() {
                     ORDER BY fromId, toId
                 `,
                 params: { activityIds, outcomeIds },
+                forbiddenProperties: ["weight"],
                 keyFromRecord: (record) => relationshipKey(
                     record.get("fromId"),
                     record.get("toId")

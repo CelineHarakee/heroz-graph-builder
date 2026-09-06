@@ -120,18 +120,6 @@ async function process(job) {
 
             seenOutcomeIds.add(outcomeIdKey);
 
-            if (
-                typeof relatedOutcome.weight !== "number" ||
-                !Number.isFinite(relatedOutcome.weight) ||
-                relatedOutcome.weight < 0 ||
-                relatedOutcome.weight > 1
-            ) {
-                throw new Error(
-                    `Goal ${document._id} has invalid weight for ` +
-                    `LearningOutcome: ${relatedOutcome.outcomeId}`
-                );
-            }
-
             const outcome = await db.collection("learning_outcomes").findOne({
                 _id: toMongoId(relatedOutcome.outcomeId)
             });
@@ -158,10 +146,7 @@ async function process(job) {
                 "RELATES_TO_OUTCOME",
                 {
                     goalId: document._id,
-                    outcomeId: relatedOutcome.outcomeId,
-                    properties: {
-                        weight: relatedOutcome.weight
-                    }
+                    outcomeId: relatedOutcome.outcomeId
                 }
             );
 
@@ -192,6 +177,8 @@ async function process(job) {
             );
         }
 
+        const seenOutcomeIds = new Set();
+
         for (const learningOutcome of document.learningOutcomes) {
 
             if (!learningOutcome || !learningOutcome.outcomeId) {
@@ -200,6 +187,17 @@ async function process(job) {
                     `entry missing outcomeId.`
                 );
             }
+
+            const outcomeIdKey = String(learningOutcome.outcomeId);
+
+            if (seenOutcomeIds.has(outcomeIdKey)) {
+                throw new Error(
+                    `Activity ${document._id} contains duplicate ` +
+                    `LearningOutcome: ${learningOutcome.outcomeId}`
+                );
+            }
+
+            seenOutcomeIds.add(outcomeIdKey);
 
             const outcome = await db.collection("learning_outcomes").findOne({
                 _id: toMongoId(learningOutcome.outcomeId)
@@ -220,10 +218,7 @@ async function process(job) {
                 "SUPPORTS_OUTCOME",
                 {
                     activityId: document._id,
-                    outcomeId: learningOutcome.outcomeId,
-                    properties: {
-                        weight: learningOutcome.weight
-                    }
+                    outcomeId: learningOutcome.outcomeId
                 }
             );
 

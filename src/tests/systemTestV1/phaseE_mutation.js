@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const nodeAssert = require("assert");
 const { ObjectId } = require("mongodb");
 const { connectMongoDB, getDatabase } = require("../../config/mongodb");
 const driver = require("../../config/neo4j");
@@ -31,6 +32,39 @@ function assertClose(label, actual, expected, tolerance = 0.000001) {
         throw new Error(
             `${label}: expected ${expected}, found ${actual}`
         );
+    }
+}
+
+function cloneObjectIdSafe(value) {
+    if (value instanceof ObjectId) {
+        return new ObjectId(value.toHexString());
+    }
+
+    if (value instanceof Date) {
+        return new Date(value.getTime());
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((item) => cloneObjectIdSafe(item));
+    }
+
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [
+                key,
+                cloneObjectIdSafe(item)
+            ])
+        );
+    }
+
+    return value;
+}
+
+function assertDeepEqual(label, actual, expected) {
+    try {
+        nodeAssert.deepStrictEqual(actual, expected);
+    } catch (error) {
+        throw new Error(`${label}: ${error.message}`);
     }
 }
 
@@ -146,7 +180,62 @@ function requireGoal(candidate, name) {
         `${candidate.activity.title}: missing goal "${name}"`
     );
 
+    assert(
+        !Object.prototype.hasOwnProperty.call(goal, "goalOutcomeWeight"),
+        `${candidate.activity.title}: goal "${name}" must not include ` +
+        `goalOutcomeWeight`
+    );
+
+    assert(
+        !Object.prototype.hasOwnProperty.call(goal, "activityOutcomeWeight"),
+        `${candidate.activity.title}: goal "${name}" must not include ` +
+        `activityOutcomeWeight`
+    );
+
     return goal;
+}
+
+function requireGoalOutcome(candidate, goalName, outcomeId) {
+    const goal = requireGoal(candidate, goalName);
+
+    assertEqual(
+        `${candidate.activity.title} ${goalName} outcomeId`,
+        goal.learningOutcome?.outcomeId,
+        outcomeId
+    );
+
+    return goal;
+}
+
+function hasGoalOutcomeTuple(candidate, goalId, outcomeId) {
+    return (candidate.evidence?.goals ?? []).some((goal) =>
+        goal.goalId === goalId &&
+        goal.learningOutcome?.outcomeId === outcomeId
+    );
+}
+
+function requireGoalOutcomeTuple(
+    candidate,
+    goalId,
+    outcomeId,
+    label
+) {
+    assert(
+        hasGoalOutcomeTuple(candidate, goalId, outcomeId),
+        `${label}: missing exact goal/outcome tuple`
+    );
+}
+
+function assertNoGoalOutcomeTuple(
+    candidate,
+    goalId,
+    outcomeId,
+    label
+) {
+    assert(
+        !hasGoalOutcomeTuple(candidate, goalId, outcomeId),
+        `${label}: unexpected exact goal/outcome tuple`
+    );
 }
 
 function assertNoGoal(candidate, name) {
@@ -230,6 +319,85 @@ async function assertRelationshipProperties(
         } else {
             assertEqual(`${label}.${property}`, actual, expected);
         }
+    }
+}
+
+async function assertRelationshipMissingProperties(
+    session,
+    label,
+    query,
+    params,
+    forbiddenProperties
+) {
+    const relationship = await assertRelationshipCount(
+        session,
+        label,
+        query,
+        params,
+        1
+    );
+
+    for (const property of forbiddenProperties) {
+        assert(
+            !Object.prototype.hasOwnProperty.call(
+                relationship.properties ?? {},
+                property
+            ),
+            `${label}: unexpected ${property}`
+        );
+    }
+}
+
+function requireOutcomeItem(activity, outcomeId, label) {
+    const matches = (activity.learningOutcomes ?? []).filter(
+        (outcome) => toGraphId(outcome.outcomeId) === outcomeId
+    );
+
+    assertEqual(`${label} outcome count`, matches.length, 1);
+
+    assert(
+        !Object.prototype.hasOwnProperty.call(matches[0], "weight"),
+        `${label} must not contain weight`
+    );
+
+    return matches[0];
+}
+
+function assertNoOutcomeItem(activity, outcomeId, label) {
+    const matches = (activity.learningOutcomes ?? []).filter(
+        (outcome) => toGraphId(outcome.outcomeId) === outcomeId
+    );
+
+    assertEqual(`${label} outcome count`, matches.length, 0);
+}
+
+function assertNoOutcomeWeights(activity, label) {
+    for (const outcome of activity.learningOutcomes ?? []) {
+        assert(
+            !Object.prototype.hasOwnProperty.call(outcome, "weight"),
+            `${label} learningOutcomes must not contain weight`
+        );
+    }
+}
+
+function assertLearningOutcomesRestored(actual, expected, label) {
+    assertEqual(`${label} outcome count`, actual.length, expected.length);
+
+    for (let index = 0; index < expected.length; index += 1) {
+        assertEqual(
+            `${label} outcome ${index} id`,
+            toGraphId(actual[index].outcomeId),
+            toGraphId(expected[index].outcomeId)
+        );
+        assertEqual(
+            `${label} outcome ${index} evidenceGuidance`,
+            JSON.stringify(actual[index].evidenceGuidance ?? null),
+            JSON.stringify(expected[index].evidenceGuidance ?? null)
+        );
+        assert(
+            !Object.prototype.hasOwnProperty.call(actual[index], "weight"),
+            `${label} outcome ${index} must not contain weight`
+        );
     }
 }
 
@@ -445,6 +613,11 @@ async function loadRequiredDataset(db) {
             "Dirty baseline: Creative Robotics learningOutcomes.outcomeId " +
             "must be ObjectId before Phase E mutates data"
         );
+        assert(
+            !Object.prototype.hasOwnProperty.call(learningOutcome, "weight"),
+            "Dirty baseline: Creative Robotics learningOutcomes must not " +
+            "contain weight"
+        );
     }
 
     assert(
@@ -512,12 +685,10 @@ function validateBaselineD4(context, candidatesByChild) {
         "Creative Robotics",
         "Sara baseline"
     );
-    const saraCreativeProblemSolving =
-        requireGoal(saraCreativeRobotics, "Improve Problem Solving");
-    assertClose(
-        "Sara Creative Robotics Problem Solving activityOutcomeWeight",
-        saraCreativeProblemSolving.activityOutcomeWeight,
-        0.80
+    requireGoalOutcome(
+        saraCreativeRobotics,
+        "Improve Problem Solving",
+        graphId(context.problemSolvingOutcome)
     );
 
     const omarStrategy = requireCandidate(
@@ -537,12 +708,10 @@ function validateBaselineD4(context, candidatesByChild) {
         "Creative Robotics",
         "Lina baseline"
     );
-    const linaCreativity =
-        requireGoal(linaCreativeRobotics, "Grow Creativity");
-    assertClose(
-        "Lina Creative Robotics activityOutcomeWeight",
-        linaCreativity.activityOutcomeWeight,
-        0.60
+    requireGoalOutcome(
+        linaCreativeRobotics,
+        "Grow Creativity",
+        graphId(context.creativityOutcome)
     );
 
     assert(context, "Baseline context missing");
@@ -597,12 +766,16 @@ async function restoreBaseline(
         }
     );
 
+    const originalCreativeRoboticsLearningOutcomes =
+        originals.originalCreativeRoboticsLearningOutcomes ??
+        originals.creativeRobotics.learningOutcomes;
+
     await db.collection("activities").updateOne(
         { _id: originals.creativeRobotics._id },
         {
             $set: {
                 learningOutcomes:
-                    originals.creativeRobotics.learningOutcomes,
+                    originalCreativeRoboticsLearningOutcomes,
                 "metadata.updatedAt":
                     originals.creativeRobotics.metadata.updatedAt
             }
@@ -693,34 +866,32 @@ async function verifyMongoRestoration(db, originals) {
         );
     }
 
-    assertEqual(
-        "Restored Creative Robotics outcome count",
-        restoredCreativeRobotics.learningOutcomes.length,
-        originals.creativeRobotics.learningOutcomes.length
+    assertNoOutcomeWeights(
+        restoredCreativeRobotics,
+        "Restored Creative Robotics"
     );
 
-    for (const outcome of restoredCreativeRobotics.learningOutcomes) {
-        assert(
-            outcome.outcomeId instanceof ObjectId,
-            "Restored Creative Robotics outcomeId must be ObjectId"
-        );
-    }
-
-    const problemSolving = restoredCreativeRobotics.learningOutcomes.find(
-        (outcome) =>
-            toGraphId(outcome.outcomeId) ===
-            graphId(originals.problemSolvingOutcome)
+    assertLearningOutcomesRestored(
+        restoredCreativeRobotics.learningOutcomes,
+        originals.originalCreativeRoboticsLearningOutcomes,
+        "Restored Creative Robotics"
     );
-    const creativity = restoredCreativeRobotics.learningOutcomes.find(
-        (outcome) =>
-            toGraphId(outcome.outcomeId) ===
-            graphId(originals.creativityOutcome)
+    assertDeepEqual(
+        "Restored Creative Robotics learningOutcomes deep comparison",
+        restoredCreativeRobotics.learningOutcomes,
+        originals.originalCreativeRoboticsLearningOutcomes
     );
 
-    assert(problemSolving, "Restored Problem Solving outcome missing");
-    assert(creativity, "Restored Creativity outcome missing");
-    assertClose("Restored Problem Solving weight", problemSolving.weight, 0.80);
-    assertClose("Restored Creativity weight", creativity.weight, 0.60);
+    requireOutcomeItem(
+        restoredCreativeRobotics,
+        graphId(originals.problemSolvingOutcome),
+        "Restored Creative Robotics Problem Solving"
+    );
+    requireOutcomeItem(
+        restoredCreativeRobotics,
+        graphId(originals.creativityOutcome),
+        "Restored Creative Robotics Creativity"
+    );
 
     assert(
         restoredSaraRoboticsInterest.childId instanceof ObjectId,
@@ -793,7 +964,7 @@ async function verifyNeo4jRestoration(session, originals) {
         }
     );
 
-    await assertRelationshipProperties(
+    await assertRelationshipMissingProperties(
         session,
         "Creative Robotics Problem Solving restored",
         supportsOutcomeQuery(),
@@ -801,10 +972,10 @@ async function verifyNeo4jRestoration(session, originals) {
             activityId: graphId(originals.creativeRobotics),
             outcomeId: graphId(originals.problemSolvingOutcome)
         },
-        { weight: 0.80 }
+        ["weight"]
     );
 
-    await assertRelationshipProperties(
+    await assertRelationshipMissingProperties(
         session,
         "Creative Robotics Creativity restored",
         supportsOutcomeQuery(),
@@ -812,7 +983,7 @@ async function verifyNeo4jRestoration(session, originals) {
             activityId: graphId(originals.creativeRobotics),
             outcomeId: graphId(originals.creativityOutcome)
         },
-        { weight: 0.60 }
+        ["weight"]
     );
 
     await assertRelationshipCount(
@@ -854,13 +1025,21 @@ function verifyFinalD4Baseline(context, candidatesByChild) {
         "Creative Robotics",
         "Sara restored"
     );
-    requireInterest(saraCreativeRobotics, "Robotics");
-    const saraProblemSolving =
-        requireGoal(saraCreativeRobotics, "Improve Problem Solving");
-    assertClose(
-        "Sara restored Creative Robotics activityOutcomeWeight",
-        saraProblemSolving.activityOutcomeWeight,
-        0.80
+    assertDeepEqual(
+        "Sara restored Creative Robotics Interest evidence",
+        requireInterest(saraCreativeRobotics, "Robotics"),
+        context.saraCreativeRoboticsInterestEvidence
+    );
+    requireGoalOutcome(
+        saraCreativeRobotics,
+        "Improve Problem Solving",
+        graphId(context.problemSolvingOutcome)
+    );
+    requireGoalOutcomeTuple(
+        saraCreativeRobotics,
+        graphId(context.problemSolvingGoal),
+        graphId(context.problemSolvingOutcome),
+        "Sara restored Creative Robotics Problem Solving tuple"
     );
 
     const omarStrategy = requireCandidate(
@@ -880,12 +1059,10 @@ function verifyFinalD4Baseline(context, candidatesByChild) {
         "Creative Robotics",
         "Lina restored"
     );
-    const linaCreativity =
-        requireGoal(linaCreativeRobotics, "Grow Creativity");
-    assertClose(
-        "Lina restored Creative Robotics activityOutcomeWeight",
-        linaCreativity.activityOutcomeWeight,
-        0.60
+    requireGoalOutcome(
+        linaCreativeRobotics,
+        "Grow Creativity",
+        graphId(context.creativityOutcome)
     );
 }
 
@@ -926,6 +1103,19 @@ async function main() {
         );
         const creativityOutcomeId = graphId(originals.creativityOutcome);
         const creativeRoboticsId = graphId(originals.creativeRobotics);
+
+        originals.originalCreativeRoboticsLearningOutcomes =
+            cloneObjectIdSafe(originals.creativeRobotics.learningOutcomes);
+
+        const baselineSaraCreativeRobotics = requireCandidate(
+            baselineD4.sara,
+            "Creative Robotics",
+            "Sara original baseline"
+        );
+        originals.saraCreativeRoboticsInterestEvidence =
+            cloneObjectIdSafe(
+                requireInterest(baselineSaraCreativeRobotics, "Robotics")
+            );
 
         // ==================================================
         // E1 — Sara Robotics interest update
@@ -1132,22 +1322,64 @@ async function main() {
         console.log("PHASE E3 — ACTIVITY OUTCOME CHANGE");
         console.log("========================================");
 
-        const originalCreativityOutcome =
-            originals.creativeRobotics.learningOutcomes.find(
-                (outcome) =>
-                    toGraphId(outcome.outcomeId) === creativityOutcomeId
-            );
-
-        assert(
-            originalCreativityOutcome,
-            "Creative Robotics original Creativity outcome missing"
+        const originalProblemSolvingOutcome = requireOutcomeItem(
+            originals.creativeRobotics,
+            problemSolvingOutcomeId,
+            "Creative Robotics original Problem Solving"
+        );
+        const originalCreativityOutcome = requireOutcomeItem(
+            originals.creativeRobotics,
+            creativityOutcomeId,
+            "Creative Robotics original Creativity"
         );
 
-        const e3UpdatedAt = new Date();
+        assert(originalProblemSolvingOutcome, "Original Problem Solving missing");
+
+        await assertRelationshipMissingProperties(
+            session,
+            "Creative Robotics Problem Solving baseline",
+            supportsOutcomeQuery(),
+            {
+                activityId: creativeRoboticsId,
+                outcomeId: problemSolvingOutcomeId
+            },
+            ["weight"]
+        );
+
+        await assertRelationshipMissingProperties(
+            session,
+            "Creative Robotics Creativity baseline",
+            supportsOutcomeQuery(),
+            {
+                activityId: creativeRoboticsId,
+                outcomeId: creativityOutcomeId
+            },
+            ["weight"]
+        );
+
+        const baselineSaraCreative = requireCandidate(
+            saraAfterE2,
+            "Creative Robotics",
+            "Sara E3 baseline"
+        );
+        requireGoalOutcome(
+            baselineSaraCreative,
+            "Improve Problem Solving",
+            problemSolvingOutcomeId
+        );
+        requireGoalOutcomeTuple(
+            baselineSaraCreative,
+            problemSolvingGoalId,
+            problemSolvingOutcomeId,
+            "Sara E3 Creative Robotics baseline Problem Solving tuple"
+        );
+
+        const e3SaraCreativeInterestEvidence =
+            cloneObjectIdSafe(requireInterest(baselineSaraCreative, "Robotics"));
+
         const mutatedCreativeOutcomes = [
             {
                 outcomeId: originals.creativityOutcome._id,
-                weight: 0.90,
                 evidenceGuidance:
                     originalCreativityOutcome.evidenceGuidance
             }
@@ -1157,10 +1389,29 @@ async function main() {
             { _id: originals.creativeRobotics._id },
             {
                 $set: {
-                    learningOutcomes: mutatedCreativeOutcomes,
-                    "metadata.updatedAt": e3UpdatedAt
+                    learningOutcomes: mutatedCreativeOutcomes
                 }
             }
+        );
+
+        const mutatedCreativeRobotics =
+            await db.collection("activities").findOne({
+                _id: originals.creativeRobotics._id
+            });
+
+        assertNoOutcomeItem(
+            mutatedCreativeRobotics,
+            problemSolvingOutcomeId,
+            "Creative Robotics temporary Problem Solving"
+        );
+        requireOutcomeItem(
+            mutatedCreativeRobotics,
+            creativityOutcomeId,
+            "Creative Robotics temporary Creativity"
+        );
+        assertNoOutcomeWeights(
+            mutatedCreativeRobotics,
+            "Creative Robotics temporary"
         );
 
         await processSyntheticJob("Activity", originals.creativeRobotics._id);
@@ -1176,15 +1427,15 @@ async function main() {
             0
         );
 
-        await assertRelationshipProperties(
+        await assertRelationshipMissingProperties(
             session,
-            "Creative Robotics Creativity updated",
+            "Creative Robotics Creativity retained",
             supportsOutcomeQuery(),
             {
                 activityId: creativeRoboticsId,
                 outcomeId: creativityOutcomeId
             },
-            { weight: 0.90 }
+            ["weight"]
         );
 
         await assertRelationshipCount(
@@ -1203,16 +1454,25 @@ async function main() {
                 originals.sara._id
             );
 
-        assertEqual("Sara E3 candidate count", saraAfterE3.length, 4);
         const e3SaraCreative = requireCandidate(
             saraAfterE3,
             "Creative Robotics",
             "Sara E3"
         );
-        assertClose(
-            "Sara E3 Creative Robotics Robotics score",
-            requireInterest(e3SaraCreative, "Robotics").score,
-            0.94
+        assertDeepEqual(
+            "Sara E3 Creative Robotics Interest evidence",
+            requireInterest(e3SaraCreative, "Robotics"),
+            e3SaraCreativeInterestEvidence
+        );
+        assertNoGoal(
+            e3SaraCreative,
+            "Improve Problem Solving"
+        );
+        assertNoGoalOutcomeTuple(
+            e3SaraCreative,
+            problemSolvingGoalId,
+            problemSolvingOutcomeId,
+            "Sara E3 Creative Robotics Problem Solving tuple"
         );
         assertEqual(
             "Sara E3 Creative Robotics goal count",
@@ -1236,15 +1496,14 @@ async function main() {
             "Creative Robotics",
             "Lina E3"
         );
-        assertClose(
-            "Lina E3 Creative Robotics activityOutcomeWeight",
-            requireGoal(e3LinaCreative, "Grow Creativity")
-                .activityOutcomeWeight,
-            0.90
+        requireGoalOutcome(
+            e3LinaCreative,
+            "Grow Creativity",
+            creativityOutcomeId
         );
 
         console.log(
-            "✅ E3 Activity outcome mutation propagated to Neo4j + D4"
+            "✅ E3 Activity outcome link removal propagated to Neo4j + D4"
         );
 
         // ==================================================
@@ -1407,7 +1666,7 @@ async function main() {
     console.log("");
     console.log("E3 Activity outcome change:      PASSED");
     console.log("Stale SUPPORTS_OUTCOME removal:  PASSED");
-    console.log("Updated outcome weight:          PASSED");
+    console.log("Outcome link membership update:  PASSED");
     console.log("D4 evidence change:              PASSED");
     console.log("");
     console.log("E4 New Omar interest:            PASSED");

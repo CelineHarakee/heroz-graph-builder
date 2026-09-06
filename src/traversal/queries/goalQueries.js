@@ -14,15 +14,15 @@ async function findActivitiesByGoal(childId) {
 
             (g:Goal)
 
-            -[go:RELATES_TO_OUTCOME]->
+            -[:RELATES_TO_OUTCOME]->
 
             (o:LearningOutcome)
 
-            <-[ao:SUPPORTS_OUTCOME]-
+            <-[:SUPPORTS_OUTCOME]-
 
             (a:Activity)
 
-            RETURN a, g, o, hg, go, ao
+            RETURN a, g, o, hg
         `;
 
         const result = await session.run(query, {
@@ -37,9 +37,6 @@ async function findActivitiesByGoal(childId) {
             const goal = record.get("g");
             const learningOutcome = record.get("o");
             const hasGoal = record.get("hg");
-            const relatesToOutcome = record.get("go");
-            const supportsOutcome = record.get("ao");
-
             return {
                 activity: {
                     activityId: activity.properties.activityId,
@@ -63,11 +60,7 @@ async function findActivitiesByGoal(childId) {
                                     learningOutcome.properties.outcomeId,
                                 name:
                                     learningOutcome.properties.name
-                            },
-                            goalOutcomeWeight:
-                                relatesToOutcome.properties.weight ?? null,
-                            activityOutcomeWeight:
-                                supportsOutcome.properties.weight ?? null
+                            }
                         }
                     ]
                 }

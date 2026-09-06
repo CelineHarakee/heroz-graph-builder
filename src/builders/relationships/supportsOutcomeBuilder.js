@@ -1,7 +1,7 @@
 const driver = require("../../config/neo4j");
 const { toGraphId } = require("../../utils/idUtils");
 
-async function build(activityId, outcomeId, properties = {}) {
+async function build(activityId, outcomeId) {
 
     const session = driver.session();
 
@@ -12,16 +12,14 @@ async function build(activityId, outcomeId, properties = {}) {
             MATCH (o:LearningOutcome {outcomeId: $outcomeId})
 
             MERGE (a)-[r:SUPPORTS_OUTCOME]->(o)
-            SET
-                r.weight = $weight
+            REMOVE r.weight
 
             RETURN r
         `;
 
         const result = await session.run(query, {
             activityId: toGraphId(activityId),
-            outcomeId: toGraphId(outcomeId),
-            weight: properties.weight ?? null
+            outcomeId: toGraphId(outcomeId)
         });
 
         if (result.records.length === 0) {

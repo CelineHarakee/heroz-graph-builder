@@ -416,8 +416,7 @@ async function main() {
 
                 relatedOutcomes: [
                     {
-                        outcomeId: problemSolvingId,
-                        weight: 0.90
+                        outcomeId: problemSolvingId
                     }
                 ],
 
@@ -432,8 +431,7 @@ async function main() {
 
                 relatedOutcomes: [
                     {
-                        outcomeId: teamworkId,
-                        weight: 0.85
+                        outcomeId: teamworkId
                     }
                 ],
 
@@ -448,8 +446,7 @@ async function main() {
 
                 relatedOutcomes: [
                     {
-                        outcomeId: creativityId,
-                        weight: 0.95
+                        outcomeId: creativityId
                     }
                 ],
 
@@ -648,12 +645,10 @@ async function main() {
                 learningOutcomes: [
                     {
                         outcomeId: problemSolvingId,
-                        weight: 0.90,
                         evidenceGuidance: []
                     },
                     {
                         outcomeId: teamworkId,
-                        weight: 0.50,
                         evidenceGuidance: []
                     }
                 ],
@@ -706,7 +701,6 @@ async function main() {
                 learningOutcomes: [
                     {
                         outcomeId: creativityId,
-                        weight: 0.90,
                         evidenceGuidance: []
                     }
                 ],
@@ -759,7 +753,6 @@ async function main() {
                 learningOutcomes: [
                     {
                         outcomeId: teamworkId,
-                        weight: 0.95,
                         evidenceGuidance: []
                     }
                 ],
@@ -812,12 +805,10 @@ async function main() {
                 learningOutcomes: [
                     {
                         outcomeId: problemSolvingId,
-                        weight: 0.85,
                         evidenceGuidance: []
                     },
                     {
                         outcomeId: teamworkId,
-                        weight: 0.70,
                         evidenceGuidance: []
                     }
                 ],
@@ -870,12 +861,10 @@ async function main() {
                 learningOutcomes: [
                     {
                         outcomeId: problemSolvingId,
-                        weight: 0.80,
                         evidenceGuidance: []
                     },
                     {
                         outcomeId: creativityId,
-                        weight: 0.60,
                         evidenceGuidance: []
                     }
                 ],
@@ -1130,7 +1119,31 @@ async function main() {
 
         for (const goal of goalDocs) {
 
+            const seenOutcomeIds = new Set();
+
             for (const relatedOutcome of goal.relatedOutcomes) {
+
+                assert(
+                    relatedOutcome && relatedOutcome.outcomeId,
+                    `Goal ${goal._id} has related outcome missing outcomeId`
+                );
+
+                assert(
+                    !Object.prototype.hasOwnProperty.call(
+                        relatedOutcome,
+                        "weight"
+                    ),
+                    `Goal ${goal._id} related outcome must not contain weight`
+                );
+
+                const outcomeIdKey = String(relatedOutcome.outcomeId);
+
+                assert(
+                    !seenOutcomeIds.has(outcomeIdKey),
+                    `Goal ${goal._id} contains duplicate outcome`
+                );
+
+                seenOutcomeIds.add(outcomeIdKey);
 
                 const outcome = await db.collection("learning_outcomes")
                     .findOne({
@@ -1143,10 +1156,6 @@ async function main() {
                     `Goal ${goal._id} references missing outcome`
                 );
 
-                assert(
-                    typeof relatedOutcome.weight === "number",
-                    `Goal ${goal._id} outcome weight must be numeric`
-                );
             }
         }
 
@@ -1184,7 +1193,28 @@ async function main() {
                 `Activity ${activity._id} category does not match its subcategory category`
             );
 
+            const seenOutcomeIds = new Set();
+
             for (const outcome of activity.learningOutcomes) {
+
+                assert(
+                    outcome && outcome.outcomeId,
+                    `Activity ${activity._id} has learning outcome missing outcomeId`
+                );
+
+                assert(
+                    !Object.prototype.hasOwnProperty.call(outcome, "weight"),
+                    `Activity ${activity._id} learning outcome must not contain weight`
+                );
+
+                const outcomeIdKey = String(outcome.outcomeId);
+
+                assert(
+                    !seenOutcomeIds.has(outcomeIdKey),
+                    `Activity ${activity._id} contains duplicate outcome`
+                );
+
+                seenOutcomeIds.add(outcomeIdKey);
 
                 const outcomeDoc = await db.collection("learning_outcomes")
                     .findOne({
