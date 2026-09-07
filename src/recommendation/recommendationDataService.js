@@ -303,6 +303,73 @@ async function getExplorationRecommendationHistory(
     };
 }
 
+async function getInteractionsForCandidateActivities(
+    childId,
+    candidateActivityIds
+) {
+
+    if (!Array.isArray(candidateActivityIds)) {
+        throw new Error("candidateActivityIds must be an Array");
+    }
+
+    const childMongoId = toMongoId(childId);
+
+    if (!(childMongoId instanceof ObjectId)) {
+        return {
+            source: "unavailable",
+            interactions: []
+        };
+    }
+
+    if (!await collectionExists("interactions")) {
+        return {
+            source: "unavailable",
+            interactions: []
+        };
+    }
+
+    const activityIds = getUniqueMongoIds(candidateActivityIds);
+
+    if (activityIds.length === 0) {
+        return {
+            source: "available",
+            interactions: []
+        };
+    }
+
+    const db = getDatabase();
+
+    const interactions = await db.collection("interactions")
+        .find({
+            "actor.childId": childMongoId,
+            "targetEntity.entityType": "Activity",
+            "targetEntity.entityId": {
+                $in: activityIds
+            }
+        })
+        .project({
+            _id: 1,
+            "actor.childId": 1,
+            "actor.actorType": 1,
+            "targetEntity.entityType": 1,
+            "targetEntity.entityId": 1,
+            "interactionDetails.interactionType": 1,
+            "interactionDetails.ratingValue": 1,
+            "interactionDetails.durationSeconds": 1,
+            "context.surface": 1,
+            "context.recommendationId": 1,
+            "context.sessionId": 1,
+            timestamp: 1,
+            "metadata.version": 1
+        })
+        .toArray();
+
+    return {
+        source: "available",
+        interactions
+    };
+}
+
 module.exports = {
     getChild,
     getParent,
@@ -313,5 +380,6 @@ module.exports = {
     getSubcategoriesByIds,
     getGoalsByIds,
     getExplorationBookingHistory,
-    getExplorationRecommendationHistory
+    getExplorationRecommendationHistory,
+    getInteractionsForCandidateActivities
 };

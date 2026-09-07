@@ -145,6 +145,12 @@ async function buildRecommendationContext(childId) {
             candidateActivityIds
         );
 
+    const interactionHistory =
+        await recommendationDataService.getInteractionsForCandidateActivities(
+            child._id,
+            candidateActivityIds
+        );
+
     return {
         child,
         parent,
@@ -152,9 +158,11 @@ async function buildRecommendationContext(childId) {
         historyContext: {
             bookings: bookingHistory.bookings,
             recommendations: recommendationHistory.recommendations,
+            interactions: interactionHistory.interactions,
             sources: {
                 bookings: bookingHistory.source,
-                recommendations: recommendationHistory.source
+                recommendations: recommendationHistory.source,
+                interactions: interactionHistory.source
             }
         },
         goalContext: {

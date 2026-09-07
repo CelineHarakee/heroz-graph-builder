@@ -59,6 +59,10 @@ function assertHistoryContext(context, expectedSources) {
         Array.isArray(context.historyContext.recommendations),
         "historyContext.recommendations must be an Array"
     );
+    assert(
+        Array.isArray(context.historyContext.interactions),
+        "historyContext.interactions must be an Array"
+    );
     nodeAssert.deepStrictEqual(
         context.historyContext.sources,
         expectedSources
@@ -114,9 +118,12 @@ async function main() {
             await collectionExists(db, "bookings");
         const recommendationsExists =
             await collectionExists(db, "recommendations");
+        const interactionsExists =
+            await collectionExists(db, "interactions");
         const expectedSources = {
             bookings: bookingsExists ? "available" : "unavailable",
-            recommendations: recommendationsExists ? "available" : "unavailable"
+            recommendations: recommendationsExists ? "available" : "unavailable",
+            interactions: interactionsExists ? "available" : "unavailable"
         };
 
         const sara = await loadChildByName(db, "Sara");
