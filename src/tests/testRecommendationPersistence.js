@@ -68,7 +68,7 @@ function createFakeDb({
     const calls = {
         collectionNames: [],
         inserts: [],
-        updateOne: 0,
+        updates: [],
         deleteOne: 0
     };
 
@@ -89,8 +89,13 @@ function createFakeDb({
                         insertedId
                     };
                 },
-                async updateOne() {
-                    calls.updateOne += 1;
+                async updateOne(filter, update) {
+                    calls.updates.push({ filter, update });
+
+                    return {
+                        matchedCount: 1,
+                        modifiedCount: 1
+                    };
                 },
                 async deleteOne() {
                     calls.deleteOne += 1;
@@ -128,7 +133,7 @@ async function testValidPersistence() {
     assert.strictEqual(result.recommendationId, "64f000000000000000000099");
     assert.deepStrictEqual(fakeDb.calls.collectionNames, ["recommendations"]);
     assert.strictEqual(fakeDb.calls.inserts.length, 1);
-    assert.strictEqual(fakeDb.calls.updateOne, 0);
+    assert.strictEqual(fakeDb.calls.updates.length, 0);
     assert.strictEqual(fakeDb.calls.deleteOne, 0);
     assert(fakeDb.calls.inserts[0].parentId instanceof ObjectId);
     assert.strictEqual(fakeDb.calls.inserts[0].algorithmVersion, 1);
@@ -191,11 +196,53 @@ async function testAlgorithmVersionNotCallerOverridable() {
     assert.strictEqual(fakeDb.calls.inserts[0].algorithmVersion, 1);
 }
 
+async function testAttachRecommendationItemExplanation() {
+    const fakeDb = createFakeDb();
+    const {
+        attachRecommendationItemExplanation
+    } = loadPersistenceService(fakeDb);
+    const result = await attachRecommendationItemExplanation({
+        recommendationId: "64f000000000000000000099",
+        activityId: "64f000000000000000000011",
+        explanation: {
+            reasonTypes: ["interest"],
+            language: "en",
+            text: "Grounded explanation.",
+            source: "generated"
+        }
+    });
+
+    assert.deepStrictEqual(result, {
+        recommendationId: "64f000000000000000000099",
+        activityId: "64f000000000000000000011"
+    });
+    assert.strictEqual(fakeDb.calls.updates.length, 1);
+    assert.strictEqual(
+        String(fakeDb.calls.updates[0].filter._id),
+        "64f000000000000000000099"
+    );
+    assert.strictEqual(
+        String(fakeDb.calls.updates[0].filter["recommendedItems.activityId"]),
+        "64f000000000000000000011"
+    );
+    assert.deepStrictEqual(
+        fakeDb.calls.updates[0].update.$set["recommendedItems.$.explanation"],
+        {
+            reasonTypes: ["interest"],
+            language: "en",
+            text: "Grounded explanation.",
+            source: "generated"
+        }
+    );
+    assert(fakeDb.calls.updates[0].update.$set["metadata.updatedAt"] instanceof Date);
+}
+
 async function main() {
     await testValidPersistence();
     await testValidationFailureDoesNotInsert();
     await testInsertFailurePropagates();
     await testAlgorithmVersionNotCallerOverridable();
+    await testAttachRecommendationItemExplanation();
 
     console.log("Recommendation persistence unit tests: PASSED");
 }

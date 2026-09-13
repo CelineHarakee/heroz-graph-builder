@@ -40,7 +40,10 @@ function makeContext(candidates = [
             _id: new ObjectId("64f000000000000000000001")
         },
         parent: {
-            _id: new ObjectId("64f000000000000000000002")
+            _id: new ObjectId("64f000000000000000000002"),
+            account: {
+                preferredLanguage: "en"
+            }
         },
         candidates,
         historyContext: {},
@@ -75,7 +78,8 @@ function createHarness({
         ranking: [],
         selection: [],
         resultBuilder: [],
-        persistence: []
+        persistence: [],
+        explanations: []
     };
     const requestedAt = new Date("2026-09-08T12:00:00.000Z");
 
@@ -243,6 +247,24 @@ function createHarness({
             return {
                 recommendationId: persistenceId
             };
+        },
+        async attachRecommendationExplanations(payload) {
+            maybeThrow("explanations");
+            calls.order.push("explanations");
+            calls.explanations.push(payload);
+
+            return {
+                recommendationId: payload.recommendationId,
+                recommendations: payload.recommendationResults.map((item) => ({
+                    ...item,
+                    explanation: {
+                        reasonTypes: ["interest"],
+                        language: payload.parent.account.preferredLanguage,
+                        text: `Explanation for ${item.activityId}`,
+                        source: "generated"
+                    }
+                }))
+            };
         }
     };
 
@@ -292,7 +314,15 @@ async function testHappyPathAndServiceOrder() {
     assert.strictEqual(calls.persistence[0].parentId, context.parent._id);
     assert.strictEqual(calls.persistence[0].childId, context.child._id);
     assert.strictEqual(calls.persistence[0].requestedAt, requestedAt);
-    assert.strictEqual(calls.persistence[0].recommendationResults, result.recommendations);
+    assert.strictEqual(calls.persistence[0].recommendationResults.length, 2);
+    assert(!Object.prototype.hasOwnProperty.call(
+        calls.persistence[0].recommendationResults[0],
+        "explanation"
+    ));
+    assert.strictEqual(calls.explanations.length, 1);
+    assert.strictEqual(calls.explanations[0].recommendationId, result.recommendationId);
+    assert.strictEqual(calls.explanations[0].recommendationResults, calls.persistence[0].recommendationResults);
+    assert.strictEqual(calls.explanations[0].parent, context.parent);
     assert.deepStrictEqual(snapshot(context), contextBefore);
 
     const contextIndex = calls.order.indexOf("context");
@@ -301,6 +331,7 @@ async function testHappyPathAndServiceOrder() {
     const selectionIndex = calls.order.indexOf("selection");
     const builderIndex = calls.order.indexOf("resultBuilder");
     const persistenceIndex = calls.order.indexOf("persistence");
+    const explanationsIndex = calls.order.indexOf("explanations");
 
     assert(contextIndex < eligibilityIndex);
     assert(eligibilityIndex < calls.order.indexOf("factor:interest:activity_a"));
@@ -309,6 +340,7 @@ async function testHappyPathAndServiceOrder() {
     assert(rankingIndex < selectionIndex);
     assert(selectionIndex < builderIndex);
     assert(builderIndex < persistenceIndex);
+    assert(persistenceIndex < explanationsIndex);
 }
 
 async function testIneligibleAndMixedCandidates() {
@@ -415,9 +447,10 @@ async function testFailurePropagation() {
         "factor",
         "finalScore",
         "ranking",
-        "selection",
-        "resultBuilder",
-        "persistence"
+            "selection",
+            "resultBuilder",
+            "persistence",
+            "explanations"
     ]) {
         const {
             engine,
@@ -489,7 +522,13 @@ async function testNoUnselectedLeakageAndResultPreservation() {
             activityId: "activity_a",
             rank: 1,
             score: 0.9,
-            marker: "from-result-builder"
+            marker: "from-result-builder",
+            explanation: {
+                reasonTypes: ["interest"],
+                language: "en",
+                text: "Explanation for activity_a",
+                source: "generated"
+            }
         }
     ]);
 }

@@ -39,6 +39,12 @@ const {
 const {
     persistRecommendationSnapshot
 } = require("./recommendationPersistenceService");
+const {
+    attachRecommendationExplanations
+} = require("../explanation/explanationOrchestrator");
+const {
+    createGeminiLanguageProvider
+} = require("../explanation/geminiLanguageProvider");
 
 function isPlainObject(value) {
     return (
@@ -128,6 +134,8 @@ function createRecommendationEngine(dependencies = {}) {
         selectTopN,
         buildRecommendationResults,
         persistRecommendationSnapshot,
+        attachRecommendationExplanations,
+        languageProvider: createGeminiLanguageProvider(),
         now: () => new Date(),
         ...dependencies
     };
@@ -223,12 +231,19 @@ function createRecommendationEngine(dependencies = {}) {
                 requestedAt,
                 recommendationResults
             });
+        const explainedResult =
+            await services.attachRecommendationExplanations({
+                recommendationId: persistenceResult.recommendationId,
+                recommendationResults,
+                parent: context.parent,
+                languageProvider: services.languageProvider
+            });
 
         return {
             childId: normalizedChild.childId,
             requestedAt,
             recommendationId: persistenceResult.recommendationId,
-            recommendations: recommendationResults
+            recommendations: explainedResult.recommendations
         };
     }
 

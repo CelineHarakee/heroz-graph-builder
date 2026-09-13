@@ -442,6 +442,7 @@ async function testContextComposition() {
 
     let bookingLoadCount = 0;
     let recommendationLoadCount = 0;
+    let interactionLoadCount = 0;
     let bookingInputIds = null;
     let recommendationInputIds = null;
 
@@ -477,6 +478,17 @@ async function testContextComposition() {
                 bookings: [bookingDocument]
             };
         };
+    recommendationDataService.getInteractionsForCandidateActivities =
+        async (receivedChildId, activityIds) => {
+            interactionLoadCount += 1;
+            assert(sameId(receivedChildId, childId));
+            assert.strictEqual(activityIds.length, 2);
+
+            return {
+                source: "available",
+                interactions: []
+            };
+        };
     recommendationDataService.getExplorationRecommendationHistory =
         async (receivedChildId, activityIds) => {
             recommendationLoadCount += 1;
@@ -507,10 +519,12 @@ async function testContextComposition() {
     );
     assert.deepStrictEqual(context.historyContext.sources, {
         bookings: "available",
-        recommendations: "available"
+        recommendations: "available",
+        interactions: "available"
     });
     assert.strictEqual(bookingLoadCount, 1);
     assert.strictEqual(recommendationLoadCount, 1);
+    assert.strictEqual(interactionLoadCount, 1);
     assert.strictEqual(bookingInputIds.length, 2);
     assert.strictEqual(recommendationInputIds.length, 2);
     assert(
