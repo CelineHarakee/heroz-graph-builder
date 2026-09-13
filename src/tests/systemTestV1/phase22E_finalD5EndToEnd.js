@@ -197,7 +197,13 @@ function assertRecommendationResult(item, expected, activityIdByTitle, sessionId
     assert(!Object.prototype.hasOwnProperty.call(item, "vendor"));
     assert(!Object.prototype.hasOwnProperty.call(item, "eligibilityEvaluation"));
     assert(!Object.prototype.hasOwnProperty.call(item, "sessionEvaluations"));
-    assert(!Object.prototype.hasOwnProperty.call(item, "explanation"));
+    assert(Object.prototype.hasOwnProperty.call(item, "explanation"));
+    assert(item.explanation);
+    assert(Array.isArray(item.explanation.reasonTypes));
+    assert(["en", "ar"].includes(item.explanation.language));
+    assert(typeof item.explanation.text === "string");
+    assert(item.explanation.text.trim().length > 0);
+    assert(["generated", "fallback"].includes(item.explanation.source));
     assert(!Object.prototype.hasOwnProperty.call(item.factors, "vendor"));
 
     for (const factor of FACTORS) {
