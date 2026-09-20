@@ -3,7 +3,7 @@ const { ObjectId } = require("mongodb");
 const { isDeepStrictEqual } = require("util");
 const { getLearningInstruction } = require("../learning/learningRuleEngine");
 const { calculateNextInterestState } = require("../learning/interestStateTransition");
-const { persistAppliedInterestLearning } = require("../learning/learningPersistenceService");
+const { persistAppliedInterestLearning, persistAppliedContinuousLearning } = require("../learning/learningPersistenceService");
 
 function copy(value) {
     if (value instanceof ObjectId) return new ObjectId(value);
@@ -39,12 +39,21 @@ function input(existing = false) {
 
 function fake(currentState = null) {
     const f = {
-        durable: { child_interests: currentState ? [copy(currentState)] : [], ai_jobs: [], graph_sync_queue: [] },
+        durable: { child_interests: currentState ? [copy(currentState)] : [], ai_jobs: [], graph_sync_queue: [], children: [], activities: [], learning_outcomes: [] },
         calls: [], commits: 0, aborts: 0, ends: 0, fail: null, zeroMatch: false,
         error: new Error("Injected database failure")
     };
     let active = false, staged;
-    function point(name) { f.calls.push(name); if (f.fail === name) throw f.error; }
+    function point(name) {
+        f.calls.push(name);
+        if (f.fail === name) {
+            if (name === "ai_jobs.insert" && f.error.code === 11000 && !f.noWinner) {
+                f.durable.ai_jobs.push(copy(f.winner || { jobType: "ContinuousLearning",
+                    idempotencyKey: f.activeKey, status: "COMPLETED", outcome: "APPLIED" }));
+            }
+            throw f.error;
+        }
+    }
     const session = {
         startTransaction(options) {
             assert.deepStrictEqual(options, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" } });
@@ -68,7 +77,12 @@ function fake(currentState = null) {
         function verify(options) { assert.strictEqual(options.session, session); assert(active); }
         return {
             async findOne(filter, options) {
+                if (!options) {
+                    assert(!active); assert.strictEqual(name, "ai_jobs");
+                    return copy(f.durable[name].find((record) => matches(record, filter)) ?? null);
+                }
                 verify(options); point(`${name}.find`);
+                if (name === "ai_jobs") f.activeKey = filter.idempotencyKey;
                 return copy(staged[name].find((record) => matches(record, filter)) ?? null);
             },
             async insertOne(document, options) {
@@ -78,7 +92,7 @@ function fake(currentState = null) {
             async updateOne(filter, update, options) {
                 verify(options); point(`${name}.update`);
                 f.filter = filter;
-                if (f.zeroMatch) return { matchedCount: 0 };
+                if (f.zeroMatch || f.zeroMatchCollection === name) return { matchedCount: 0 };
                 const doc = staged[name].find((record) => matches(record, filter));
                 if (!doc) return { matchedCount: 0 };
                 Object.assign(doc, copy(update.$set));
@@ -191,6 +205,7 @@ async function testDuplicatesAndRaces() {
         const data = input(), f = fake(), before = copy(f.durable);
         f.fail = fail; f.error = Object.assign(new Error("Duplicate key"), { code: 11000, keyPattern });
         assert.strictEqual((await run(data, f)).reasonCode, reason);
+        if (reason === "DUPLICATE_EVENT") before.ai_jobs = copy(f.durable.ai_jobs);
         assert.deepStrictEqual(f.durable, before);
         assert.strictEqual(f.aborts, 1);
     }
@@ -242,8 +257,8 @@ async function testReplayAndBookingSnapshot() {
 
     const bookingData = input();
     Object.assign(bookingData.event, {
-        eventType: "Attend", source: "Booking", bookingId: "64f000000000000000000006",
-        sessionId: "64f000000000000000000007", processing: { idempotencyKey: "booking:64f000000000000000000006:Attend" }
+        eventType: "Book", source: "Booking", bookingId: "64f000000000000000000006",
+        sessionId: "64f000000000000000000007", processing: { idempotencyKey: "booking:64f000000000000000000006:Book" }
     });
     bookingData.instruction = getLearningInstruction(bookingData.event);
     bookingData.nextState = calculateNextInterestState(null, bookingData.instruction, bookingData.event).state;
@@ -263,12 +278,162 @@ async function testReplayAndBookingSnapshot() {
         race.error = Object.assign(new Error(`E11000 duplicate key error index: ${index} dup key`), { code: 11000 });
         assert.strictEqual((await run(input(), race)).reasonCode, reason);
         assert.strictEqual(race.durable.child_interests.length, 0);
-        assert.strictEqual(race.durable.ai_jobs.length, 0);
+        assert.strictEqual(race.durable.ai_jobs.length, reason === "DUPLICATE_EVENT" ? 1 : 0);
         assert.strictEqual(race.durable.graph_sync_queue.length, 0);
     }
 }
 
+const { getOutcomeLearningInstruction } = require("../learning/outcomeLearningRuleEngine");
+const { calculateNextDevelopmentProfile } = require("../learning/developmentProfileTransition");
+const outcomeIds = ["64f000000000000000000010", "64f000000000000000000011"];
+function combined(empty = false, existing = false) {
+    const data = input(existing);
+    Object.assign(data.event, { eventType: "Attend", source: "Booking", bookingId: "64f000000000000000000006",
+        processing: { idempotencyKey: "booking:64f000000000000000000006:Attend" } });
+    data.instruction = getLearningInstruction(data.event);
+    data.nextState = calculateNextInterestState(data.currentState, data.instruction, data.event).state;
+    const oldEntry = (outcomeId) => ({ outcomeId: new ObjectId(outcomeId), score: 0.3, confidenceScore: 0.2,
+        evidenceCount: 2, trend: "Stable", history: [], lastEvidenceAt: new Date("2025-01-01"), lastUpdated: new Date("2025-01-02") });
+    data.currentDevelopmentProfile = [oldEntry(outcomeIds[0]), oldEntry("64f000000000000000000012")];
+    data.outcomeResult = empty ? { status: "NOT_APPLICABLE", reasonCode: "NO_MAPPED_OUTCOMES" } :
+        calculateNextDevelopmentProfile(data.currentDevelopmentProfile,
+            getOutcomeLearningInstruction(data.event, { status: "APPLICABLE", activityId: ids.activity, outcomeIds }), data.event);
+    if (!empty) data.nextDevelopmentProfile = data.outcomeResult.developmentProfile;
+    const f = fake(data.currentState);
+    f.durable.children = [{ _id: new ObjectId(ids.child), developmentProfile: copy(data.currentDevelopmentProfile),
+        parentGoals: [{ goalId: "unchanged" }], preferences: { retained: true }, status: "Active", name: "Preserved" }];
+    f.durable.activities = [{ _id: new ObjectId(ids.activity), learningOutcomes: empty ? [] : outcomeIds.map((id) => ({ outcomeId: new ObjectId(id) })) }];
+    f.durable.learning_outcomes = outcomeIds.map((id) => ({ _id: new ObjectId(id), isActive: true }));
+    return { data, f };
+}
+async function runCombined(data, f) {
+    const before = copy(data);
+    const result = await persistAppliedContinuousLearning({ ...data, currentInterestState: data.currentState,
+        nextInterestState: data.nextState, client: f.client, db: f.db });
+    assert.deepStrictEqual(data, before);
+    return result;
+}
+async function testCombined() {
+    for (const empty of [false, true]) for (const existing of [false, true]) {
+        const { data, f } = combined(empty, existing), before = copy(f.durable.children[0]), start = Date.now();
+        assert.strictEqual((await runCombined(data, f)).status, "APPLIED");
+        assert.strictEqual(f.commits, 1);
+        assert.strictEqual(f.durable.child_interests.length, 1);
+        assert.strictEqual(f.durable.ai_jobs.length, 1);
+        assert.strictEqual(f.durable.graph_sync_queue.length, 1);
+        const job = f.durable.ai_jobs[0], queue = f.durable.graph_sync_queue[0], child = f.durable.children[0];
+        assert.strictEqual(job.components.interest.status, "APPLIED");
+        assert.strictEqual(job.components.outcomes.status, empty ? "NOT_APPLICABLE" : "APPLIED");
+        assert(job.components.interest.completedAt instanceof Date);
+        assert.deepStrictEqual(job.components.outcomes.completedAt, job.processing.completedAt);
+        assert.strictEqual(queue.entityType, "ChildInterest"); assert.strictEqual(queue.status, "PENDING");
+        assert.deepStrictEqual(queue.entityId, f.durable.child_interests[0]._id);
+        assert.deepStrictEqual({ ...child, developmentProfile: undefined }, { ...before, developmentProfile: undefined });
+        if (empty) {
+            assert.deepStrictEqual(child, before);
+            assert.strictEqual(job.components.outcomes.reasonCode, "NO_MAPPED_OUTCOMES");
+            assert(!f.calls.includes("children.update"));
+        } else {
+            assert.strictEqual(child.developmentProfile.length, 3);
+            assert.deepStrictEqual(child.developmentProfile[1], before.developmentProfile[1]);
+            for (const [index, score, count] of [[0, 0.4, 3], [2, 0.1, 1]]) {
+                const entry = child.developmentProfile[index];
+                assert(entry.outcomeId instanceof ObjectId);
+                assert.strictEqual(entry.score, score); assert.strictEqual(entry.evidenceCount, count);
+                assert.deepStrictEqual(entry.lastEvidenceAt, new Date(data.event.occurredAt));
+                assert(entry.lastUpdated.getTime() >= start && entry.lastUpdated.getTime() <= Date.now());
+                assert.deepStrictEqual(entry.history.at(-1).timestamp, new Date(data.event.occurredAt));
+                assert.strictEqual(typeof entry.history.at(-1).bookingId, "string");
+            }
+        }
+        const committed = copy(f.durable);
+        assert.strictEqual((await runCombined(data, f)).reasonCode, "DUPLICATE_EVENT");
+        assert.deepStrictEqual(f.durable, committed);
+    }
+    const { data, f } = combined();
+    assert.strictEqual((await run(data, f)).reasonCode, "COMBINED_LEARNING_REQUIRED");
+    assert.deepStrictEqual(f.calls, []);
+    for (const type of ["View", "Save", "Book"]) {
+        const data = input(), f = fake();
+        data.event.eventType = type; data.instruction = getLearningInstruction(data.event);
+        data.nextState = calculateNextInterestState(null, data.instruction, data.event).state;
+        assert.strictEqual((await run(data, f)).status, "APPLIED");
+        assert.deepStrictEqual(Object.keys(f.durable.ai_jobs[0].components), ["interest"]);
+        assert.strictEqual(f.durable.graph_sync_queue.length, 1);
+        assert.deepStrictEqual(f.durable.children, []);
+    }
+}
+async function testCombinedFailures() {
+    // Fail after interest, profile, job, and queue staging, respectively.
+    for (const existing of [false, true]) for (const fail of ["children.update", "ai_jobs.insert", "graph_sync_queue.insert", "commit"]) {
+        const { data, f } = combined(false, existing), before = copy(f.durable); f.fail = fail;
+        assert.strictEqual((await runCombined(data, f)).reasonCode, "DATABASE_ERROR");
+        assert.deepStrictEqual(f.durable, before); assert.strictEqual(f.aborts, 1);
+    }
+    for (const stale of ["interest", "profile", "both", "conditional"]) {
+        const { data, f } = combined(false, true);
+        if (["interest", "both"].includes(stale)) f.durable.child_interests[0].confidence.evidenceCount++;
+        if (["profile", "both"].includes(stale)) f.durable.children[0].developmentProfile[1].score += 0.1;
+        if (stale === "conditional") f.zeroMatchCollection = "children";
+        const before = copy(f.durable);
+        const result = await runCombined(data, f);
+        assert.strictEqual(result.reasonCode, "CONCURRENT_STATE_CHANGE"); assert(result.retryable);
+        assert.deepStrictEqual(f.durable, before);
+    }
+    for (const change of ["mapping", "inactive", "missing", "calculation", "emptyClaim"]) {
+        const { data, f } = combined();
+        if (change === "mapping") f.durable.activities[0].learningOutcomes = [];
+        if (change === "inactive") f.durable.learning_outcomes[0].isActive = false;
+        if (change === "missing") f.durable.learning_outcomes = [];
+        if (change === "calculation") data.nextDevelopmentProfile[0].score = 1;
+        if (change === "emptyClaim") data.outcomeResult = { status: "NOT_APPLICABLE", reasonCode: "NO_MAPPED_OUTCOMES" };
+        const before = copy(f.durable);
+        assert.notStrictEqual((await runCombined(data, f)).status, "APPLIED");
+        assert.deepStrictEqual(f.durable, before);
+    }
+    for (const components of [undefined, { interest: { status: "APPLIED", completedAt: new Date() } }, null]) {
+        const { data, f } = combined();
+        f.durable.ai_jobs.push({ jobType: "ContinuousLearning", idempotencyKey: data.event.processing.idempotencyKey,
+            status: "COMPLETED", outcome: "APPLIED", ...(components === undefined ? {} : { components }) });
+        const before = copy(f.durable), result = await runCombined(data, f);
+        assert.strictEqual(result.reasonCode, components === undefined ? "DUPLICATE_EVENT" : "INVALID_PROCESSING_STATE");
+        assert.deepStrictEqual(f.durable, before);
+    }
+    // Empty mapping still requires the same profile snapshot, without writing it.
+    {
+        const { data, f } = combined(true);
+        f.durable.children[0].developmentProfile[0].score += 0.1;
+        const before = copy(f.durable);
+        assert.strictEqual((await runCombined(data, f)).reasonCode, "CONCURRENT_STATE_CHANGE");
+        assert.deepStrictEqual(f.durable, before);
+    }
+    // Component-bearing winners must be complete even after a uniqueness race.
+    for (const complete of [false, true]) {
+        const { data, f } = combined();
+        f.fail = "ai_jobs.insert";
+        f.error = Object.assign(new Error("race"), { code: 11000, keyPattern: { jobType: 1, idempotencyKey: 1 } });
+        const component = { status: "APPLIED", completedAt: new Date() };
+        f.winner = { jobType: "ContinuousLearning", idempotencyKey: data.event.processing.idempotencyKey,
+            status: "COMPLETED", outcome: "APPLIED", components: { interest: component, ...(complete ? { outcomes: component } : {}) } };
+        const before = copy(f.durable);
+        assert.strictEqual((await runCombined(data, f)).reasonCode, complete ? "DUPLICATE_EVENT" : "INVALID_PROCESSING_STATE");
+        before.ai_jobs = [f.winner]; assert.deepStrictEqual(f.durable, before);
+    }
+    for (const status of ["COMPLETED", "FAILED", "PROCESSING", "malformed"]) {
+        const { data, f } = combined();
+        f.fail = "ai_jobs.insert";
+        f.error = Object.assign(new Error("race"), { code: 11000, keyPattern: { jobType: 1, idempotencyKey: 1 } });
+        f.winner = { jobType: "ContinuousLearning", idempotencyKey: data.event.processing.idempotencyKey, status, outcome: "APPLIED" };
+        const before = copy(f.durable), result = await runCombined(data, f);
+        assert.strictEqual(result.reasonCode, { COMPLETED: "DUPLICATE_EVENT", FAILED: "RETRY_REQUIRES_ORCHESTRATION",
+            PROCESSING: "EVENT_ALREADY_PROCESSING", malformed: "INVALID_PROCESSING_STATE" }[status]);
+        before.ai_jobs = [f.winner]; assert.deepStrictEqual(f.durable, before);
+    }
+}
+
 async function main() {
+    await testCombined();
+    await testCombinedFailures();
     await testSuccess();
     await testTimestampSafety();
     await testRollback();

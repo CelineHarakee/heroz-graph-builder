@@ -2,6 +2,11 @@ const { ObjectId } = require("mongodb");
 const { isDeepStrictEqual } = require("util");
 const { toMongoId, toGraphId } = require("../utils/idUtils");
 
+const { getRequiredLearningComponents, validateLearningComponents } = require("./learningComponentContract");
+const { resolveOutcomeLearningContext } = require("./outcomeLearningContextService");
+const { getOutcomeLearningInstruction } = require("./outcomeLearningRuleEngine");
+const { calculateNextDevelopmentProfile } = require("./developmentProfileTransition");
+
 class PersistenceGuard extends Error {
     constructor(reasonCode) {
         super(reasonCode);
@@ -68,12 +73,26 @@ function uniqueConstraint(error, name, keys) {
 
 /**
  * Persist one trusted, pre-calculated transition. Requires initialized indexes
- * and a db belonging to client. Does not connect, recalculate or retry.
+ * and a db belonging to client. Does not connect or retry.
+ * Combined Attend revalidates the supplied pure outcome calculation against
+ * authoritative mappings inside the transaction; it never substitutes new state.
  * Returns APPLIED, IGNORED, NOT_APPLIED or FAILED with reasonCode/retryable/error;
  * state is returned only after a successful commit.
  * Existing non-COMPLETED jobs are left to later lifecycle/recovery orchestration.
  */
-async function persistAppliedInterestLearning({ client, db, event, instruction, currentState, nextState }) {
+async function persistAppliedInterestLearning(input) {
+    if (input?.event?.eventType === "Attend") return {
+        status: "NOT_APPLIED", reasonCode: "COMBINED_LEARNING_REQUIRED", retryable: false, state: null, error: null
+    };
+    return persistCore(input);
+}
+
+async function persistAppliedContinuousLearning({ currentInterestState, nextInterestState, ...input }) {
+    return persistCore({ ...input, currentState: currentInterestState, nextState: nextInterestState });
+}
+
+async function persistCore({ client, db, event, instruction, currentState, nextState,
+    currentDevelopmentProfile, nextDevelopmentProfile, outcomeResult }) {
     let session;
     const result = (status, reasonCode, retryable = false, error = null, state = null) =>
         ({ status, reasonCode, retryable, state, error });
@@ -86,6 +105,10 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
             if (typeof event[key] !== "string" || !event[key].trim()) throw new PersistenceGuard("INVALID_EVENT");
             if (instruction[key] !== event[key]) throw new PersistenceGuard("IDENTITY_MISMATCH");
         }
+        if (!getRequiredLearningComponents(event.eventType)) throw new PersistenceGuard("UNSUPPORTED_EVENT_TYPE");
+        if (event.eventType !== "Attend" && [currentDevelopmentProfile, nextDevelopmentProfile, outcomeResult].some((v) => v !== undefined)) {
+            throw new PersistenceGuard("UNEXPECTED_OUTCOME_STATE");
+        }
         const occurredAt = date(event.occurredAt);
         const state = prepareState(nextState, event);
         const identity = { childId: state.childId, subcategoryId: state.subcategoryId };
@@ -96,7 +119,13 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
         const jobs = db.collection("ai_jobs");
         const previousJob = await jobs.findOne(exactKey, options);
         if (previousJob) {
-            if (previousJob.status === "COMPLETED") throw new PersistenceGuard("DUPLICATE_EVENT");
+            if (previousJob.status === "COMPLETED") {
+                if (Object.hasOwn(previousJob, "components") &&
+                    (previousJob.outcome !== "APPLIED" || validateLearningComponents(event.eventType, previousJob.components).status !== "VALID")) {
+                    throw new PersistenceGuard("INVALID_PROCESSING_STATE");
+                }
+                throw new PersistenceGuard("DUPLICATE_EVENT");
+            }
             if (previousJob.status === "PROCESSING") throw new PersistenceGuard("EVENT_ALREADY_PROCESSING");
             if (previousJob.status === "FAILED") throw new PersistenceGuard("RETRY_REQUIRES_ORCHESTRATION");
             throw new PersistenceGuard("INVALID_PROCESSING_STATE");
@@ -107,6 +136,45 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
             throw new PersistenceGuard("CONCURRENT_STATE_CHANGE");
         }
         const now = new Date();
+        const components = { interest: { status: "APPLIED", completedAt: now } };
+        let persistedProfile, child;
+        if (event.eventType === "Attend") {
+            child = await db.collection("children").findOne({ _id: mongoIdentity(event.childId) }, options);
+            if (!child || !isDeepStrictEqual(child.developmentProfile, currentDevelopmentProfile)) {
+                throw new PersistenceGuard("CONCURRENT_STATE_CHANGE");
+            }
+            // Bind all authoritative context reads to this same snapshot/session.
+            const context = await resolveOutcomeLearningContext(event, { db: {
+                collection: (name) => ({ findOne: (filter) => db.collection(name).findOne(filter, options) })
+            } });
+            if (context.status === "FAILED") throw new Error("Outcome context read failed");
+            if (context.status === "NOT_APPLICABLE" && context.reasonCode === "NO_MAPPED_OUTCOMES") {
+                if (outcomeResult?.status !== "NOT_APPLICABLE" || outcomeResult.reasonCode !== "NO_MAPPED_OUTCOMES" ||
+                    (nextDevelopmentProfile !== undefined && !isDeepStrictEqual(nextDevelopmentProfile, currentDevelopmentProfile))) {
+                    throw new PersistenceGuard("INVALID_OUTCOME_RESULT");
+                }
+                components.outcomes = { status: "NOT_APPLICABLE", reasonCode: "NO_MAPPED_OUTCOMES", completedAt: now };
+            } else {
+                if (context.status !== "APPLICABLE") throw new PersistenceGuard(context.reasonCode);
+                const calculated = calculateNextDevelopmentProfile(currentDevelopmentProfile,
+                    getOutcomeLearningInstruction(event, context), event);
+                if (calculated.status !== "APPLIED") throw new PersistenceGuard(calculated.reasonCode);
+                if (outcomeResult?.status !== "APPLIED" || !isDeepStrictEqual(calculated.developmentProfile, nextDevelopmentProfile)) {
+                    throw new PersistenceGuard("INVALID_OUTCOME_RESULT");
+                }
+                persistedProfile = copy(nextDevelopmentProfile);
+                const affected = new Set(context.outcomeIds);
+                for (const entry of persistedProfile) {
+                    if (!affected.has(toGraphId(toMongoId(entry.outcomeId)))) continue;
+                    entry.outcomeId = mongoIdentity(entry.outcomeId);
+                    entry.lastUpdated = new Date(now);
+                    entry.lastEvidenceAt = date(entry.lastEvidenceAt);
+                    entry.history[entry.history.length - 1].timestamp = date(entry.history[entry.history.length - 1].timestamp);
+                }
+                components.outcomes = { status: "APPLIED", completedAt: now };
+            }
+        }
+        if (validateLearningComponents(event.eventType, components).status !== "VALID") throw new PersistenceGuard("INVALID_PROCESSING_STATE");
         if (!stored) {
             state._id = new ObjectId();
             await interests.insertOne(state, options);
@@ -136,10 +204,16 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
             if (update.matchedCount !== 1) throw new PersistenceGuard("CONCURRENT_STATE_CHANGE");
             Object.assign(state, copy(stored), fields);
         }
+        if (persistedProfile) {
+            const update = await db.collection("children").updateOne({
+                _id: child._id, developmentProfile: currentDevelopmentProfile
+            }, { $set: { developmentProfile: persistedProfile } }, options);
+            if (update.matchedCount !== 1) throw new PersistenceGuard("CONCURRENT_STATE_CHANGE");
+        }
         await jobs.insertOne({
             _id: new ObjectId(), ...exactKey,
             source: { collection: event.source, documentId: event.eventId, eventType: event.eventType },
-            status: "COMPLETED", outcome: "APPLIED",
+            status: "COMPLETED", outcome: "APPLIED", components,
             event: {
                 eventType: event.eventType, childId: event.childId, activityId: event.activityId,
                 subcategoryId: event.subcategoryId, bookingId: toGraphId(event.bookingId),
@@ -153,21 +227,36 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
             operation: stored ? "UPDATE" : "CREATE", status: "PENDING", createdAt: now
         }, options);
         await session.commitTransaction();
-        return result("APPLIED", "INTEREST_LEARNING_PERSISTED", false, null, state);
+        return result("APPLIED", event.eventType === "Attend" ? "CONTINUOUS_LEARNING_PERSISTED" : "INTEREST_LEARNING_PERSISTED", false, null, state);
     } catch (error) {
         if (session?.inTransaction()) {
             try { await session.abortTransaction(); } catch (abortError) {
                 return result("FAILED", "DATABASE_ERROR", true, new AggregateError([error, abortError], "Persistence and abort failed"));
             }
         }
-        if (uniqueConstraint(error, "uniq_learning_idempotency", { jobType: 1, idempotencyKey: 1 }) ||
-            error.reasonCode === "DUPLICATE_EVENT") return result("IGNORED", "DUPLICATE_EVENT");
+        if (uniqueConstraint(error, "uniq_learning_idempotency", { jobType: 1, idempotencyKey: 1 })) {
+            // A uniqueness collision alone does not prove successful completion.
+            try {
+                const winner = await db.collection("ai_jobs").findOne({
+                    jobType: "ContinuousLearning", idempotencyKey: event.processing.idempotencyKey
+                });
+                if (winner?.status === "FAILED") return result("NOT_APPLIED", "RETRY_REQUIRES_ORCHESTRATION");
+                if (winner?.status === "PROCESSING") return result("IGNORED", "EVENT_ALREADY_PROCESSING");
+                if (winner?.status === "COMPLETED" && ["APPLIED", "IGNORED"].includes(winner.outcome) &&
+                    (!Object.hasOwn(winner, "components") || (winner.outcome === "APPLIED" &&
+                        validateLearningComponents(event.eventType, winner.components).status === "VALID"))) {
+                    return result("IGNORED", "DUPLICATE_EVENT");
+                }
+                return result("FAILED", "INVALID_PROCESSING_STATE");
+            } catch (readError) { return result("FAILED", "DATABASE_ERROR", true, readError); }
+        }
+        if (error.reasonCode === "DUPLICATE_EVENT") return result("IGNORED", "DUPLICATE_EVENT");
         if (uniqueConstraint(error, "uniq_child_interest", { childId: 1, subcategoryId: 1 }) ||
             error.code === 112 || error.reasonCode === "CONCURRENT_STATE_CHANGE") {
             return result("NOT_APPLIED", "CONCURRENT_STATE_CHANGE", true);
         }
         if (error instanceof PersistenceGuard) {
-            return result(error.reasonCode === "EVENT_ALREADY_PROCESSING" ? "IGNORED" : "NOT_APPLIED", error.reasonCode);
+            return result(error.reasonCode === "EVENT_ALREADY_PROCESSING" ? "IGNORED" : error.reasonCode === "INVALID_PROCESSING_STATE" ? "FAILED" : "NOT_APPLIED", error.reasonCode);
         }
         return result("FAILED", "DATABASE_ERROR", true, error);
     } finally {
@@ -175,4 +264,4 @@ async function persistAppliedInterestLearning({ client, db, event, instruction, 
     }
 }
 
-module.exports = { persistAppliedInterestLearning };
+module.exports = { persistAppliedInterestLearning, persistAppliedContinuousLearning };

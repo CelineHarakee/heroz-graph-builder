@@ -146,7 +146,26 @@ async function testPipeline() {
     await expectResult(references.event, db, "VALID", "IDEMPOTENCY_CLEAR");
 }
 
+async function testComponents() {
+    const event = { ...makeEvent(), eventType: "Attend" };
+    const applied = () => ({ status: "APPLIED", completedAt: new Date() });
+    for (const components of [undefined, { interest: applied(), outcomes: applied() },
+        { interest: applied(), outcomes: { status: "NOT_APPLICABLE", reasonCode: "NO_MAPPED_OUTCOMES", completedAt: new Date() } },
+        {}, null, { interest: applied() }, { interest: applied(), outcomes: { status: "APPLIED", completedAt: "bad" } }]) {
+        const valid = components === undefined || (components?.outcomes?.completedAt instanceof Date);
+        const db = fakeDb([{ jobType: "ContinuousLearning", idempotencyKey: event.processing.idempotencyKey,
+            status: "COMPLETED", outcome: "APPLIED", ...(components === undefined ? {} : { components }) }]);
+        await expectResult(event, db, valid ? "IGNORED" : "FAILED", valid ? "DUPLICATE_EVENT" : "INVALID_PROCESSING_STATE");
+    }
+    for (const status of ["FAILED", "PROCESSING"]) {
+        const db = fakeDb([{ jobType: "ContinuousLearning", idempotencyKey: event.processing.idempotencyKey, status, components: null }]);
+        await expectResult(event, db, status === "FAILED" ? "VALID" : "IGNORED",
+            status === "FAILED" ? "IDEMPOTENCY_RETRY_ALLOWED" : "EVENT_ALREADY_PROCESSING");
+    }
+}
+
 async function main() {
+    await testComponents();
     await testStates();
     await testExactQueryScope();
     await testMalformedInput();

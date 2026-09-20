@@ -1,3 +1,4 @@
+const { validateLearningComponents } = require("./learningComponentContract");
 /**
  * Read-only exact-event check. Does not acquire locks or recover stale jobs.
  * This check alone cannot guarantee exactly-once learning: later D7H persistence
@@ -24,6 +25,10 @@ async function checkEventIdempotency(event, options = {}) {
         });
 
         if (job == null) return result("VALID", "IDEMPOTENCY_CLEAR");
+        if (job.status === "COMPLETED" && Object.hasOwn(job, "components") &&
+            (job.outcome !== "APPLIED" || validateLearningComponents(event.eventType, job.components).status !== "VALID")) {
+            return result("FAILED", "INVALID_PROCESSING_STATE");
+        }
         if (job.status === "COMPLETED" && ["APPLIED", "IGNORED"].includes(job.outcome)) {
             return result("IGNORED", "DUPLICATE_EVENT");
         }
