@@ -23,4 +23,14 @@ for (const type of ["Complete", "Unknown", null, undefined, "toString"]) {
     assert.strictEqual(validate(type, {}).reasonCode, "UNSUPPORTED_EVENT_TYPE");
 }
 assert.strictEqual(validate("View", { interest: applied(), outcomes: applied() }).status, "INVALID");
+
+
+for (const type of ["PreferenceUpdated", "GoalSelected", "GoalRemoved", "GoalUpdated"]) {
+    const component = type === "PreferenceUpdated" ? "preference" : "goals";
+    assert.deepStrictEqual(required(type), [component]);
+    assert.strictEqual(validate(type, { [component]: applied() }).status, "VALID");
+    assert.strictEqual(validate(type, { interest: applied() }).status, "INVALID");
+    assert.strictEqual(validate(type, { [component]: { status: "NOT_APPLICABLE", completedAt: new Date() } }).status, "INVALID");
+}
+
 console.log("Learning component contract unit tests: PASSED");

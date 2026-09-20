@@ -1,5 +1,7 @@
 const INTEREST_EVENTS = new Set(["View", "Click", "Save", "Unsave", "Dismiss", "Book", "Rate"]);
 function getRequiredLearningComponents(eventType) {
+    if (eventType === "PreferenceUpdated") return ["preference"];
+    if (["GoalSelected", "GoalRemoved", "GoalUpdated"].includes(eventType)) return ["goals"];
     if (eventType === "Attend") return ["interest", "outcomes"];
     if (INTEREST_EVENTS.has(eventType)) return ["interest"];
     return null;
