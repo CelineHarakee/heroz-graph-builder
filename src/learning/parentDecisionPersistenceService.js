@@ -1,32 +1,11 @@
 const { ObjectId } = require("mongodb");
 const { isDeepStrictEqual } = require("util");
-const { normalizeParentDecision } = require("./eventNormalizer");
 const { validateParentDecisionEvent, canonicalParentDecisionId: id } = require("./parentDecisionContract");
 const { validateLearningComponents } = require("./learningComponentContract");
 const { calculateNextPreferences } = require("./preferenceDecisionTransition");
 const { calculateNextParentGoals } = require("./goalDecisionTransition");
-function copy(v) {
-    if (v instanceof ObjectId) return new ObjectId(v);
-    if (v instanceof Date) return new Date(v);
-    if (Array.isArray(v)) return v.map(copy);
-    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copy(x)]));
-    return v;
-}
-class Guard extends Error { constructor(reasonCode) { super(reasonCode); this.reasonCode = reasonCode; } }
-const mongo = (v) => new ObjectId(id(v));
-function sourceSnapshot(event) {
-    return { decisionId: mongo(event.eventId), parentId: mongo(event.parentId), childId: mongo(event.childId),
-        decisionType: event.eventType, decisionData: { ...copy(event.eventData),
-            ...(event.eventData.goalId ? { goalId: mongo(event.eventData.goalId) } : {}) }, occurredAt: new Date(event.occurredAt) };
-}
-function completion(job, event, snapshot) {
-    if (!isDeepStrictEqual(job.audit?.sourceSnapshot, snapshot)) throw new Guard("PARENT_DECISION_SOURCE_CONFLICT");
-    if (job.status === "FAILED") throw new Guard("RETRY_REQUIRES_ORCHESTRATION");
-    if (job.status === "PROCESSING") throw new Guard("EVENT_ALREADY_PROCESSING");
-    if (job.status !== "COMPLETED" || job.outcome !== "APPLIED" || job.resultStatus !== "APPLIED" ||
-        validateLearningComponents(event.eventType, job.components).status !== "VALID") throw new Guard("INVALID_PROCESSING_STATE");
-    throw new Guard("DUPLICATE_EVENT");
-}
+const { Guard, copy, mongo, sourceSnapshot, completion, checkSource, sourceJobQuery, exactJobQuery,
+    checkExactCompletion, orderingTarget, checkpointQuery, checkpointSort, checkOrdering } = require("./parentDecisionPersistenceContract");
 /** Persistence only. Requires trusted stored source, configured db/client and
  * existing D7 indexes. Verifies (never substitutes) the supplied pure transition.
  * No-op decisions write nothing, including no ordering checkpoint/tombstone.
@@ -46,34 +25,21 @@ async function persistParentDecision({ client, db, event, currentPreferences, cu
         session.startTransaction({ readConcern: { level: "snapshot" }, writeConcern: { w: "majority" } });
         const options = { session }, jobs = db.collection("ai_jobs");
         const storedSource = await db.collection("parent_decisions").findOne({ _id: snapshot.decisionId }, options);
-        if (!storedSource) throw new Guard("PARENT_DECISION_SOURCE_MISSING");
-        const normalized = normalizeParentDecision(storedSource);
-        if (validateParentDecisionEvent(normalized).status !== "VALID" || !isDeepStrictEqual(sourceSnapshot(normalized), snapshot)) throw new Guard("PARENT_DECISION_SOURCE_CONFLICT");
+        checkSource(storedSource, snapshot);
         // Source-wide lookup detects changed type even though it changes the event key.
-        const prior = await jobs.findOne({ jobType: "ContinuousLearning", "audit.source": "ParentDecision", "audit.decisionId": snapshot.decisionId }, options);
+        const prior = await jobs.findOne(sourceJobQuery(snapshot), options);
         if (prior) completion(prior, event, snapshot);
-        const exact = await jobs.findOne({ jobType: "ContinuousLearning", idempotencyKey: event.processing.idempotencyKey }, options);
-        if (exact) {
-            // Historical component-less successes keep the established duplicate rule.
-            if (exact.status === "COMPLETED" && !Object.hasOwn(exact, "components") && ["APPLIED", "IGNORED"].includes(exact.outcome)) throw new Guard("DUPLICATE_EVENT");
-            if (exact.status === "FAILED") throw new Guard("RETRY_REQUIRES_ORCHESTRATION");
-            if (exact.status === "PROCESSING") throw new Guard("EVENT_ALREADY_PROCESSING");
-            completion(exact, event, snapshot);
-        }
+        const exact = await jobs.findOne(exactJobQuery(event), options);
+        checkExactCompletion(exact, event, snapshot);
         const children = db.collection("children");
         const child = await children.findOne({ _id: snapshot.childId }, options);
         const parent = await db.collection("parents").findOne({ _id: snapshot.parentId }, options);
         if (!child || !parent || id(child.parentId) !== event.parentId) throw new Guard("INVALID_PARENT_AUTHORITY");
         const preference = event.eventType === "PreferenceUpdated", dimension = event.eventData.dimension;
         const component = preference ? "preference" : "goals";
-        const target = preference ? { type: "preference", key: dimension } : { type: "goal", key: id(event.eventData.goalId) };
-        const latest = await jobs.findOne({ jobType: "ContinuousLearning", status: "COMPLETED", resultStatus: "APPLIED", outcome: "APPLIED",
-            "audit.source": "ParentDecision", "audit.childId": snapshot.childId,
-            "audit.target.type": target.type, "audit.target.key": target.key }, { ...options, sort: { "audit.occurredAt": -1, _id: -1 } });
-        if (latest) {
-            if (!(latest.audit.occurredAt instanceof Date) || !Number.isFinite(latest.audit.occurredAt.getTime())) throw new Guard("INVALID_PROCESSING_STATE");
-            if (event.occurredAt.getTime() <= latest.audit.occurredAt.getTime()) throw new Guard("OUT_OF_ORDER_PARENT_DECISION");
-        }
+        const target = orderingTarget(event);
+        const latest = await jobs.findOne(checkpointQuery(snapshot, target), { ...options, sort: checkpointSort() });
+        checkOrdering(latest, event);
         let filter = { _id: child._id, parentId: child.parentId }, update;
         if (preference) {
             const present = (v) => v != null && Object.hasOwn(v, dimension);
