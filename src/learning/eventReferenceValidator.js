@@ -16,6 +16,19 @@ async function validateEventReferences(event, options = {}) {
         const db = options.db || require("../config/mongodb").getDatabase();
         if (!db) throw new Error("MongoDB database is unavailable");
 
+        if (event.source === "ParentDecision") {
+            const { canonicalParentDecisionId: id } = require("./parentDecisionContract");
+            const child = await db.collection("children").findOne({ _id: toMongoId(event.childId) });
+            const parent = await db.collection("parents").findOne({ _id: toMongoId(event.parentId) });
+            if (!child || !parent || !id(child.parentId) || id(child.parentId) !== id(event.parentId)) {
+                return reject("INVALID_PARENT_AUTHORITY");
+            }
+            if (event.eventType !== "PreferenceUpdated") {
+                const goal = await db.collection("goal_library").findOne({ _id: toMongoId(event.eventData.goalId) });
+                if (!goal || (event.eventType === "GoalSelected" && goal.isActive !== true)) return reject("INVALID_GOAL_REFERENCE");
+            }
+            return { status: "VALID", reasonCode: "VALID_REFERENCES", retryable: false, event: structuredClone(event), error: null };
+        }
         const child = await db.collection("children").findOne({ _id: toMongoId(event.childId) });
         if (!child) return reject("CHILD_NOT_FOUND");
 

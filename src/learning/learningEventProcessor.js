@@ -1,4 +1,4 @@
-const { normalizeInteraction, normalizeBooking } = require("./eventNormalizer");
+const { normalizeInteraction, normalizeBooking, normalizeParentDecision } = require("./eventNormalizer");
 const { validateEvent } = require("./eventValidator");
 const { validateEventReferences } = require("./eventReferenceValidator");
 const { checkEventIdempotency } = require("./eventIdempotencyService");
@@ -19,6 +19,10 @@ async function processEvent(event, options) {
         if (result.status !== "VALID") return result;
         currentEvent = result.event;
 
+        // Step 3 stops at the explicit-decision boundary. Persistent replay/source
+        // integrity and ordering are deferred; never use activity repeat limits.
+        if (currentEvent.source === "ParentDecision") return result;
+
         result = await checkEventIdempotency(currentEvent, options);
         if (result.status !== "VALID") return result;
         currentEvent = result.event;
@@ -36,6 +40,8 @@ async function processLearningSource(sourceType, document, options = {}) {
         if (sourceType === "Interaction") {
             const event = normalizeInteraction(document);
             events = event ? [event] : [];
+        } else if (sourceType === "ParentDecision") {
+            events = [normalizeParentDecision(document)];
         } else if (sourceType === "Booking") {
             events = normalizeBooking(document);
         } else {

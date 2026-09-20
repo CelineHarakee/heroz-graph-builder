@@ -1,3 +1,4 @@
+const { DECISION_TYPES, validateParentDecisionEvent } = require("./parentDecisionContract");
 const INTERACTION_TYPES = new Set([
     "View", "Click", "Save", "Unsave", "Dismiss", "Rate"
 ]);
@@ -35,6 +36,10 @@ function validateEvent(event) {
         };
     }
 
+    if (event?.source === "ParentDecision" || DECISION_TYPES.includes(event?.eventType)) {
+        const checked = validateParentDecisionEvent(event);
+        return result(checked.status === "VALID" ? "VALID_EVENT" : checked.reasonCode);
+    }
     if (!isRecord(event)) return result("INVALID_EVENT_DATA");
     if (!isUsableString(event.eventId)) return result("MISSING_EVENT_ID");
 

@@ -90,4 +90,30 @@ function normalizeBooking(booking) {
     return events;
 }
 
-module.exports = { normalizeInteraction, normalizeBooking };
+/** No filtering of unsupported decisions: preserve them for controlled rejection.
+ * Source records are trusted inputs; metadata remains on the source record.
+ * Canonical event identity plus complete payload supports later integrity checks.
+ */
+function normalizeParentDecision(document) {
+    const { canonicalParentDecisionId: id } = require("./parentDecisionContract");
+    const canonicalOrOriginal = (value) => id(value) ?? value;
+    const context = document?.context;
+    const payload = document?.decisionData;
+    return {
+        eventId: canonicalOrOriginal(document?._id), eventType: document?.decisionType,
+        parentId: canonicalOrOriginal(document?.parentId), childId: canonicalOrOriginal(document?.childId),
+        activityId: null, subcategoryId: null, bookingId: null,
+        sessionId: context?.sessionId == null ? null : canonicalOrOriginal(context.sessionId),
+        source: "ParentDecision",
+        eventData: payload && typeof payload === "object" && !Array.isArray(payload)
+            ? { ...payload, ...(Object.hasOwn(payload, "goalId") ? { goalId: canonicalOrOriginal(payload.goalId) } : {}) } : payload,
+        context: context == null ? { source: null, recommendationId: null, sessionId: null } :
+            (typeof context === "object" && !Array.isArray(context) ? { ...context,
+                source: context.source ?? null,
+                recommendationId: context.recommendationId == null ? null : canonicalOrOriginal(context.recommendationId),
+                sessionId: context.sessionId == null ? null : canonicalOrOriginal(context.sessionId) } : context),
+        occurredAt: document?.occurredAt instanceof Date ? new Date(document.occurredAt) : document?.occurredAt,
+        processing: { idempotencyKey: `parentDecision:${id(document?._id)}:${document?.decisionType}` }
+    };
+}
+module.exports = { normalizeInteraction, normalizeBooking, normalizeParentDecision };
