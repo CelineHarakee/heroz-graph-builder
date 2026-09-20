@@ -8,7 +8,7 @@ const child = "64f000000000000000000001", subcategory = "64f00000000000000000000
 function event(type = "View") {
     return { eventId: "event-1", eventType: type, childId: child, subcategoryId: subcategory,
         activityId: "64f000000000000000000003", occurredAt: new Date("2026-09-17T10:00:00Z"),
-        eventData: { ratingValue: 5 }, processing: { idempotencyKey: `event-1:${type}` } };
+        bookingId: "booking-1", eventData: { ratingValue: 5 }, processing: { idempotencyKey: `event-1:${type}` } };
 }
 const valid = (value) => ({ status: "VALID", reasonCode: "REPEAT_LIMIT_CLEAR", event: value, retryable: false });
 const conflict = { status: "NOT_APPLIED", reasonCode: "CONCURRENT_STATE_CHANGE", retryable: true };
@@ -18,6 +18,10 @@ function fixture(events = [event()]) {
     const f = { state: null, trace: [], counts: { d: 0, e: 0, p: 0, c: 0 }, calculations: [], queue: [], jobs: [], reads: [] };
     const client = {};
     const db = { client, collection(name) {
+        if (name === "children") return { async findOne(query) {
+            assert.deepStrictEqual(query, { _id: new ObjectId(child) });
+            return { _id: new ObjectId(child), developmentProfile: [] };
+        } };
         assert.strictEqual(name, "child_interests");
         return { async findOne(query) {
             f.trace.push("read");
@@ -41,6 +45,17 @@ function fixture(events = [event()]) {
             if (f.persistOverride) return f.persistOverride(args);
             return f.commit(args);
         }
+    };
+    f.dependencies.resolveOutcomeLearningContext = async () => ({
+        status: "APPLICABLE", activityId: events[0].activityId, outcomeIds: ["64f000000000000000000010"]
+    });
+    f.dependencies.persistAppliedContinuousLearning = async (args) => {
+        assert.strictEqual(args.event.eventType, "Attend");
+        assert.strictEqual(args.outcomeResult.status, "APPLIED");
+        assert.strictEqual(args.nextDevelopmentProfile[0].score, 0.1);
+        f.trace.push("PC:Attend"); f.counts.p++;
+        const compatibleArgs = { ...args, nextState: args.nextInterestState };
+        return f.persistOverride ? f.persistOverride(compatibleArgs) : f.commit(compatibleArgs);
     };
     f.commit = (args) => {
         f.state = { ...args.nextState, _id: f.state?._id ?? new ObjectId() };
@@ -115,7 +130,7 @@ async function testBooking() {
     const f = fixture([event("Book"), event("Attend")]);
     const results = await run(f, "Booking");
     assert.deepStrictEqual(results.map((r) => r.status), ["APPLIED", "APPLIED"]);
-    assert.deepStrictEqual(f.trace, ["C", "D", "read", "E", "P:Book", "D", "read", "E", "P:Attend"]);
+    assert.deepStrictEqual(f.trace, ["C", "D", "read", "E", "P:Book", "D", "read", "E", "PC:Attend"]);
     close(f.reads[1].interestScore.currentScore, 0.58);
     close(results[1].transition.currentScore, 0.68);
     close(results[1].transition.currentConfidence, 0.27);
