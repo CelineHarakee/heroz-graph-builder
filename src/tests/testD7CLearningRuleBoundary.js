@@ -24,7 +24,7 @@ function booking(status = "Confirmed", attendanceStatus = "Attended") {
 
 function history(type = "View", idempotencyKey = "different-source-event") {
     return {
-        _id: "job-1", jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
+        _id: "job-1", source: { documentId: "prior-source" }, jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
         idempotencyKey,
         event: { eventType: type, childId: "child-1", activityId: "activity-1", occurredAt: new Date("2026-09-16T10:00:00Z") }
     };
@@ -44,7 +44,8 @@ function fixture() {
     f.db = { collection(name) {
         assert(Object.hasOwn(records, name), `Unexpected collection: ${name}`);
         // Intentionally exposes reads only; production write calls would fail.
-        return { async findOne(query, options = {}) {
+        return { async findOne(query, options = {}) { return (await this.find(query, options).toArray())[0] ?? null; },
+            find(query, options = {}) { return { toArray: async () => {
             if (f.fail) throw new Error("Simulated database failure");
             const matches = records[name].filter((record) => Object.entries(query).every(([path, expected]) => {
                 const actual = field(record, path);
@@ -66,8 +67,8 @@ function fixture() {
                 }
                 return 0;
             });
-            return matches[0] ?? null;
-        } };
+            return matches;
+        } }; } };
     } };
     return f;
 }

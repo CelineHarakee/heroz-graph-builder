@@ -1,3 +1,4 @@
+const { toMongoId, toGraphId } = require("../utils/idUtils");
 const PASSIVE_TYPES = new Set(["View", "Click", "Dismiss"]);
 const TRANSITION_TYPES = new Set(["Save", "Unsave"]);
 const UNCAPPED_TYPES = new Set(["Book", "Attend", "Rate"]);
@@ -46,11 +47,27 @@ async function evaluateRepeatLimit(event, options = {}) {
         }
 
         query["event.eventType"] = { $in: ["Save", "Unsave"] };
-        query["event.occurredAt"] = { $lt: occurredAt };
-        // _id provides a deterministic tie-break for equal prior occurrence times.
-        const prior = await db.collection("ai_jobs").findOne(query, {
-            sort: { "event.occurredAt": -1, _id: -1 }
-        });
+        // Compare canonical source IDs in application code so equivalent BSON
+        // ObjectId/string representations have the same order, independent of
+        // MongoDB BSON-type sort order. Only applied transitions are checkpoints.
+        const history = await db.collection("ai_jobs").find(query).toArray();
+        const canonical = (value) => toGraphId(toMongoId(value));
+        let prior, latestTime = -Infinity, latestId;
+        for (const item of history) {
+            const time = new Date(item.event?.occurredAt).getTime();
+            const id = canonical(item.source?.documentId);
+            if (!Number.isFinite(time) || typeof id !== "string" || !id.trim()) {
+                return result("FAILED", "INVALID_PROCESSING_STATE");
+            }
+            if (time > latestTime || (time === latestTime && id > latestId)) {
+                prior = item; latestTime = time; latestId = id;
+            }
+        }
+        const incomingId = canonical(event.eventId);
+        if (typeof incomingId !== "string" || !incomingId.trim()) return result("REJECTED", "MISSING_EVENT_ID");
+        if (prior && (timestamp < latestTime || (timestamp === latestTime && incomingId < latestId))) {
+            return result("REJECTED", "OUT_OF_ORDER_EVENT");
+        }
         const previousType = prior?.event?.eventType;
         if (previousType === type || (!prior && type === "Unsave")) {
             return result("IGNORED", "NO_STATE_TRANSITION");

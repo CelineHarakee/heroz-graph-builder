@@ -1,3 +1,4 @@
+const { evaluateRepeatLimit } = require("./repeatLimitService");
 const { ObjectId } = require("mongodb");
 const { isDeepStrictEqual } = require("util");
 const { toMongoId, toGraphId } = require("../utils/idUtils");
@@ -134,6 +135,19 @@ async function persistCore({ client, db, event, instruction, currentState, nextS
         const stored = await interests.findOne(identity, options);
         if (!isDeepStrictEqual(stored ?? null, currentState ?? null)) {
             throw new PersistenceGuard("CONCURRENT_STATE_CHANGE");
+        }
+        // Reuse D7C policy against this transaction's snapshot. The shared
+        // ChildInterest write serializes competing transitions; write conflicts
+        // trigger the existing full orchestration reevaluation.
+        const admission = await evaluateRepeatLimit(event, { db: {
+            collection: (name) => ({
+                findOne: (filter, queryOptions = {}) => db.collection(name).findOne(filter, { ...queryOptions, session }),
+                find: (filter) => db.collection(name).find(filter, { session })
+            })
+        } });
+        if (admission.status !== "VALID") {
+            await session.abortTransaction();
+            return result(admission.status, admission.reasonCode, admission.retryable === true);
         }
         const now = new Date();
         const components = { interest: { status: "APPLIED", completedAt: now } };

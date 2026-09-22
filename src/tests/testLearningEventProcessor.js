@@ -23,7 +23,7 @@ function booking(status = "Confirmed", attendance = "Attended") {
 
 function history(type = "View", overrides = {}) {
     return {
-        _id: "job-1", jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
+        _id: "job-1", source: { documentId: "prior-source" }, jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
         idempotencyKey: "different-event",
         event: { eventType: type, childId: "child-1", activityId: "activity-1", occurredAt: new Date("2026-09-16T10:00:00Z") },
         ...overrides
@@ -45,7 +45,8 @@ function fixture() {
     f.db = { collection(name) {
         assert(Object.hasOwn(records, name), `Unexpected collection ${name}`);
         // No write methods exist on this fake.
-        return { async findOne(query, options = {}) {
+        return { async findOne(query, options = {}) { return (await this.find(query, options).toArray())[0] ?? null; },
+            find(query, options = {}) { return { toArray: async () => {
             const stage = name === "ai_jobs" ? (query.idempotencyKey ? "idempotency" : "repeat") : name;
             calls.push(stage);
             if (f.failAt === stage) throw f.error;
@@ -69,8 +70,8 @@ function fixture() {
                 }
                 return 0;
             });
-            return matches[0] ?? null;
-        } };
+            return matches;
+        } }; } };
     } };
     return f;
 }

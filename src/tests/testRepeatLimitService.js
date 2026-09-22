@@ -14,7 +14,7 @@ function event(type = "View", time = "2026-09-16T14:00:00Z") {
 }
 
 function job(type = "View", time = "2026-09-16T10:00:00Z", overrides = {}) {
-    return { _id: "job-1", jobType: "ContinuousLearning", status: "COMPLETED",
+    return { _id: "job-1", source: { documentId: "prior-source" }, jobType: "ContinuousLearning", status: "COMPLETED",
         outcome: "APPLIED", event: event(type, time), ...overrides };
 }
 
@@ -26,7 +26,8 @@ function fakeDb(records = []) {
     const calls = [];
     return { calls, collection(name) {
         assert.strictEqual(name, "ai_jobs");
-        return { async findOne(query, options = {}) {
+        return { async findOne(query, options = {}) { return (await this.find(query, options).toArray())[0] ?? null; },
+            find(query, options = {}) { return { toArray: async () => {
             calls.push({ query, options });
             const matches = records.filter((record) => Object.entries(query).every(([key, expected]) => {
                 const actual = field(record, key);
@@ -50,8 +51,8 @@ function fakeDb(records = []) {
                 }
                 return 0;
             });
-            return matches[0] ?? null;
-        } };
+            return matches;
+        } }; } };
     } };
 }
 
@@ -60,7 +61,7 @@ async function check(input, records = [], reasonCode = "REPEAT_LIMIT_CLEAR") {
     const db = fakeDb(records);
     const result = await evaluateRepeatLimit(input, { db });
     const status = reasonCode === "REPEAT_LIMIT_CLEAR" ? "VALID"
-        : ["INVALID_TIMESTAMP", "UNSUPPORTED_EVENT_TYPE"].includes(reasonCode) ? "REJECTED" : "IGNORED";
+        : ["INVALID_TIMESTAMP", "UNSUPPORTED_EVENT_TYPE", "OUT_OF_ORDER_EVENT"].includes(reasonCode) ? "REJECTED" : "IGNORED";
     assert.deepStrictEqual(result, { status, reasonCode, retryable: false, event: input, error: null });
     assert.strictEqual(result.event, input);
     if (input?.occurredAt instanceof Date) {
@@ -105,7 +106,7 @@ async function testTransitions() {
         for (const current of ["Save", "Unsave"]) {
             const db = await check(event(current), [job(previous)],
                 previous === current ? "NO_STATE_TRANSITION" : "REPEAT_LIMIT_CLEAR");
-            assert.deepStrictEqual(db.calls[0].options.sort, { "event.occurredAt": -1, _id: -1 });
+            assert.deepStrictEqual(db.calls[0].query["event.eventType"], { $in: ["Save", "Unsave"] });
         }
     }
     const history = [];
@@ -124,9 +125,10 @@ async function testTransitions() {
         await check(event("Save"), [job("Save", undefined, overrides)]);
         await check(event("Unsave"), [job("Save", undefined, overrides)], "NO_STATE_TRANSITION");
     }
+    // Later timestamp or equal timestamp with a greater canonical source ID is stale.
     for (const time of ["2026-09-16T15:00:00Z", "2026-09-16T14:00:00Z"]) {
-        await check(event("Save"), [job("Save", time)]);
-        await check(event("Unsave"), [job("Save", time)], "NO_STATE_TRANSITION");
+        await check(event("Save"), [job("Save", time)], "OUT_OF_ORDER_EVENT");
+        await check(event("Unsave"), [job("Save", time)], "OUT_OF_ORDER_EVENT");
     }
 }
 
@@ -146,7 +148,7 @@ async function testSafetyAndFailures() {
     }
     const input = event();
     const error = new Error("Read failed");
-    const db = { collection() { return { async findOne() { throw error; } }; } };
+    const db = { collection() { return { async findOne() { throw error; }, find() { return { async toArray() { throw error; } }; } }; } };
     for (const type of ["View", "Save"]) {
         const item = event(type);
         assert.deepStrictEqual(await evaluateRepeatLimit(item, { db }), {

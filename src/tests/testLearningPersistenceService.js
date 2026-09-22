@@ -67,6 +67,8 @@ function fake(currentState = null) {
     const valueAt = (record, path) => path.split(".").reduce((v, k) => v?.[k], record);
     function matches(record, filter) {
         return Object.entries(filter).every(([key, value]) => {
+            if (value?.$in) return value.$in.includes(valueAt(record, key));
+            if (value?.$gte) return valueAt(record, key) >= value.$gte && valueAt(record, key) <= value.$lte;
             if (value?.$exists === false) return valueAt(record, key) === undefined;
             return isDeepStrictEqual(valueAt(record, key), value);
         });
@@ -82,8 +84,12 @@ function fake(currentState = null) {
                     return copy(f.durable[name].find((record) => matches(record, filter)) ?? null);
                 }
                 verify(options); point(`${name}.find`);
-                if (name === "ai_jobs") f.activeKey = filter.idempotencyKey;
+                if (name === "ai_jobs" && filter.idempotencyKey) f.activeKey = filter.idempotencyKey;
                 return copy(staged[name].find((record) => matches(record, filter)) ?? null);
+            },
+            find(filter, options) {
+                verify(options); point(`${name}.find`);
+                return { toArray: async () => copy(staged[name].filter(record => matches(record, filter))) };
             },
             async insertOne(document, options) {
                 verify(options); point(`${name}.insert`); staged[name].push(copy(document));
@@ -117,7 +123,7 @@ async function testSuccess() {
         assert.strictEqual(result.status, "APPLIED");
         assert.strictEqual(result.reasonCode, "INTEREST_LEARNING_PERSISTED");
         assert.strictEqual(f.commits, 1); assert.strictEqual(f.aborts, 0); assert.strictEqual(f.ends, 1);
-        assert.deepStrictEqual(f.calls, ["start", "ai_jobs.find", "child_interests.find",
+        assert.deepStrictEqual(f.calls, ["start", "ai_jobs.find", "child_interests.find", "ai_jobs.find",
             `child_interests.${existing ? "update" : "insert"}`, "ai_jobs.insert", "graph_sync_queue.insert", "commit"]);
         const state = f.durable.child_interests[0], job = f.durable.ai_jobs[0], queue = f.durable.graph_sync_queue[0];
         assert.deepStrictEqual(result.state, state);

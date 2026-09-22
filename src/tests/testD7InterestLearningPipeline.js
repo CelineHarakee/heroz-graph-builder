@@ -30,7 +30,7 @@ function current(interest = 0.70, confidence = 0.60) {
 }
 
 function history(exact = false) {
-    return { _id: "job-1", jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
+    return { _id: "job-1", source: { documentId: "prior-source" }, jobType: "ContinuousLearning", status: "COMPLETED", outcome: "APPLIED",
         idempotencyKey: exact ? "interaction:interaction-1:View" : "different-event",
         event: { eventType: "View", childId: "child-1", activityId: "activity-1", occurredAt: at(1) } };
 }
@@ -44,7 +44,8 @@ function fixture() {
     const f = { records, forbiddenAccesses: [] };
     f.db = { collection(name) {
         assert(Object.hasOwn(records, name), `Unexpected collection: ${name}`);
-        const readOnly = { async findOne(query, options = {}) {
+        const readOnly = { async findOne(query, options = {}) { return (await this.find(query, options).toArray())[0] ?? null; },
+            find(query, options = {}) { return { toArray: async () => {
             const matches = records[name].filter((record) => Object.entries(query).every(([key, expected]) => {
                 const actual = field(record, key);
                 if (expected && typeof expected === "object") {
@@ -65,10 +66,10 @@ function fixture() {
                 }
                 return 0;
             });
-            return matches[0] ?? null;
-        } };
+            return matches;
+        } }; } };
         // No write APIs or Neo4j adapter: even attempted unsupported access fails.
-        assert.deepStrictEqual(Object.keys(readOnly), ["findOne"]);
+        assert.deepStrictEqual(Object.keys(readOnly), ["findOne", "find"]);
         return new Proxy(readOnly, { get(target, key) {
             if (!(key in target)) {
                 f.forbiddenAccesses.push(String(key));
