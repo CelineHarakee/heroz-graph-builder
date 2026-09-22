@@ -10,6 +10,11 @@ const { getOutcomeLearningInstruction } = require("./outcomeLearningRuleEngine")
 const { calculateNextDevelopmentProfile } = require("./developmentProfileTransition");
 const { getRequiredLearningComponents } = require("./learningComponentContract");
 
+const { checkParentDecisionPreflight } = require("./parentDecisionPreflightService");
+const { calculateNextPreferences } = require("./preferenceDecisionTransition");
+const { calculateNextParentGoals } = require("./goalDecisionTransition");
+const { persistParentDecision } = require("./parentDecisionPersistenceService");
+
 function outcome(event, status, reasonCode, retryable = false) {
     return { eventId: event?.eventId ?? null, eventType: event?.eventType ?? null,
         status, reasonCode, retryable, interestId: null, transition: null,
@@ -27,12 +32,64 @@ async function processContinuousLearningSource(sourceType, document, options = {
     const dependencies = { processLearningSource, getLearningInstruction,
         calculateNextInterestState, persistAppliedInterestLearning, persistAppliedContinuousLearning,
         resolveOutcomeLearningContext, getOutcomeLearningInstruction, calculateNextDevelopmentProfile,
+        checkParentDecisionPreflight, calculateNextPreferences, calculateNextParentGoals, persistParentDecision,
         ...options.dependencies };
     let initial;
     try {
         initial = await dependencies.processLearningSource(sourceType, document, { db: options.db });
     } catch (_) {
         return { status: "COMPLETED", sourceType, results: [outcome(null, "FAILED", "PROCESSING_ERROR", true)] };
+    }
+
+    // Advisory preflight must precede state-based no-ops on every attempt.
+    // Persistence remains the transactional authority for all durable checks.
+    async function processParentDecision(checked) {
+        const event = checked.event;
+        const summary = (value) => ({ status: value.status, reasonCode: value.reasonCode,
+            retryable: value.retryable === true });
+        let preflight = null, transition = null, persistence = null;
+        const result = (value) => ({ source: "ParentDecision", eventId: event?.eventId ?? null,
+            eventType: event?.eventType ?? null, idempotencyKey: event?.processing?.idempotencyKey ?? null,
+            ...summary(value), preflight, transition, persistence,
+            component: event?.eventType === "PreferenceUpdated" ? "preference" :
+                ["GoalSelected", "GoalRemoved", "GoalUpdated"].includes(event?.eventType) ? "goals" : null,
+            queueIntentCreated: value.queueIntentCreated === true });
+        if (checked.status !== "VALID") return result(checked);
+        let stage = "database";
+        try {
+            const db = options.db || require("../config/mongodb").getDatabase();
+            const client = options.client || db?.client;
+            if (!db) return result({ status: "FAILED", reasonCode: "DATABASE_ERROR", retryable: true });
+            for (let attempt = 0; attempt < 3; attempt++) {
+                stage = "database";
+                transition = null;
+                const gate = await dependencies.checkParentDecisionPreflight({ db, event });
+                preflight = summary(gate);
+                if (gate.status !== "ELIGIBLE") return result(gate);
+                const childId = toMongoId(event.childId);
+                if (!(childId instanceof ObjectId)) return result({ status: "REJECTED", reasonCode: "INVALID_IDENTITY" });
+                const child = await db.collection("children").findOne({ _id: childId });
+                if (!child) return result({ status: "NOT_APPLIED", reasonCode: "CHILD_NOT_FOUND" });
+                stage = "processing";
+                const preference = event.eventType === "PreferenceUpdated";
+                const currentPreferences = preference ? child.preferences : undefined;
+                const currentParentGoals = preference ? undefined : child.parentGoals;
+                const calculated = preference
+                    ? dependencies.calculateNextPreferences(currentPreferences, event)
+                    : dependencies.calculateNextParentGoals(currentParentGoals, event);
+                transition = summary(calculated);
+                if (calculated.status !== "APPLIED") return result(calculated);
+                stage = "database";
+                if (!client) return result({ status: "FAILED", reasonCode: "DATABASE_ERROR", retryable: true });
+                const persisted = await dependencies.persistParentDecision({ client, db, event,
+                    currentPreferences, currentParentGoals, transition: calculated });
+                persistence = summary(persisted);
+                if (persisted.reasonCode !== "CONCURRENT_STATE_CHANGE" || persisted.retryable !== true) return result(persisted);
+                if (attempt === 2) return result({ status: "FAILED", reasonCode: "CONCURRENT_RETRY_EXHAUSTED", retryable: true });
+            }
+        } catch (_) {
+            return result({ status: "FAILED", reasonCode: stage === "database" ? "DATABASE_ERROR" : "PROCESSING_ERROR", retryable: true });
+        }
     }
 
     async function processOne(first) {
@@ -144,7 +201,8 @@ async function processContinuousLearningSource(sourceType, document, options = {
     }
 
     const results = [];
-    for (const result of initial) results.push(await processOne(result));
+    for (const result of initial) results.push(await (sourceType === "ParentDecision"
+        ? processParentDecision(result) : processOne(result)));
     return { status: "COMPLETED", sourceType, results };
 }
 
