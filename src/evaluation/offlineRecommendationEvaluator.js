@@ -5,15 +5,22 @@ const executeFile = promisify(execFile);
 const BASELINE_KS = Object.freeze([1, 3, 5]);
 
 async function runBaseline() {
+    return runConfiguredEvaluation();
+}
+
+// Reuse the same isolated benchmark for caller-validated run-scoped weights.
+async function runConfiguredEvaluation(scoringConfiguration) {
     // Production imports cache their infrastructure dependencies. A fresh process
     // keeps the controlled adapter out of both the caller and subsequent runs.
-    const { stdout } = await executeFile(process.execPath, [__filename, '--worker'], {
+    const args = [__filename, '--worker'];
+    if (scoringConfiguration !== undefined) args.push(JSON.stringify(scoringConfiguration));
+    const { stdout } = await executeFile(process.execPath, args, {
         maxBuffer: 16 * 1024 * 1024, timeout: 60000
     });
     return JSON.parse(stdout);
 }
 
-async function evaluateInWorker() {
+async function evaluateInWorker(scoringConfiguration) {
     const assert = require('node:assert/strict');
     const { isDeepStrictEqual } = require('node:util');
     const Module = require('node:module');
@@ -92,7 +99,7 @@ async function evaluateInWorker() {
         };
         const { evaluateCases } = require('./evaluationRunner');
         const { recommendationCoverage } = require('./evaluationMetrics');
-        const result = await evaluateCases({ ...dataset, ks: BASELINE_KS,
+        const result = await evaluateCases({ ...dataset, ks: BASELINE_KS, scoringConfiguration,
             async withCaseEnvironment(c, execute) {
                 assert.equal(active, undefined); active = copy(c); audit.caseIds.push(c.caseId);
                 const before = JSON.stringify(active);
@@ -126,10 +133,10 @@ function formatBaseline(result) {
     lines.push('', 'Exploration rate uses the returned Top-5 list; all metrics and aggregates are from D1. N/A is excluded from means. No quality thresholds or tuning.', result.execution.infrastructure);
     return lines.join('\n');
 }
-module.exports = { BASELINE_KS, runBaseline, formatBaseline };
+module.exports = { BASELINE_KS, runBaseline, runConfiguredEvaluation, formatBaseline };
 if (require.main === module) {
     const mode = process.argv[2];
-    const task = mode === '--worker' ? evaluateInWorker() : !mode || mode === '--json' ? runBaseline() : Promise.reject(new Error('Use no argument for summary or --json for full results'));
+    const task = mode === '--worker' ? evaluateInWorker(process.argv[3] === undefined ? undefined : JSON.parse(process.argv[3])) : !mode || mode === '--json' ? runBaseline() : Promise.reject(new Error('Use no argument for summary or --json for full results'));
     task.then(result => process.stdout.write(mode === '--worker' || mode === '--json' ? JSON.stringify(result) + '\n' : formatBaseline(result) + '\n'))
         .catch(error => { console.error(error); process.exitCode = 1; });
 }

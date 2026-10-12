@@ -22,7 +22,11 @@ function aggregate(cases, ks) {
  * No live/default environment is silently selected. Fixture data belongs to the
  * caller; this module neither creates ground truth nor changes profile state.
  */
-async function evaluateCases({ cases, ks, datasetVersion, evaluatedAt, withCaseEnvironment }) {
+async function evaluateCases({ cases, ks, datasetVersion, evaluatedAt, withCaseEnvironment, scoringConfiguration }) {
+    // Optional, caller-validated run configuration; never changes the default path.
+    const configuration = scoringConfiguration === undefined
+        ? { id: 'FROZEN_V1_SIX_FACTOR', weights: { ...SCORING_WEIGHTS } }
+        : { id: scoringConfiguration.id, weights: { ...scoringConfiguration.weights } };
     if (!Array.isArray(cases) || !Array.isArray(ks) || !ks.length || ks.some(k => !Number.isInteger(k) || k <= 0)) throw new TypeError('Cases and positive K values are required');
     if (typeof datasetVersion !== 'string' || !datasetVersion.trim()) throw new TypeError('Dataset version is required');
     if (!(evaluatedAt instanceof Date) || !Number.isFinite(evaluatedAt.getTime())) throw new TypeError('Controlled evaluation time is required');
@@ -63,6 +67,10 @@ async function evaluateCases({ cases, ks, datasetVersion, evaluatedAt, withCaseE
             // history. Preserve snapshot construction and real local explanations.
             const outputs = [];
             const engine = createRecommendationEngine({
+                ...(scoringConfiguration === undefined ? {} : {
+                    calculateFinalScore: state => require('../recommendation/finalScoreService')
+                        .calculateFinalScore(state, { weights: configuration.weights })
+                }),
                 now: () => new Date(evaluatedAt), languageProvider: null,
                 evaluateRecommendationEligibility(context) {
                     const evaluation = evaluateRecommendationEligibility(context, new Date(evaluatedAt));
@@ -94,7 +102,7 @@ async function evaluateCases({ cases, ks, datasetVersion, evaluatedAt, withCaseE
         if (executions !== 1 || !result) throw new Error('Case environment did not complete execution');
         results.push(result);
     }
-    return { datasetVersion, recommendationConfiguration: { id: 'FROZEN_V1_SIX_FACTOR', weights: { ...SCORING_WEIGHTS } },
+    return { datasetVersion, recommendationConfiguration: configuration,
         requestedKs, overall: aggregate(results, requestedKs), segments: Object.fromEntries(PROFILE_STATES.map(state =>
             [state, aggregate(results.filter(c => c.profileState === state), requestedKs)])), cases: results };
 }

@@ -84,30 +84,31 @@ function validateScoringState(state) {
     }
 }
 
-function calculateFinalScore(state) {
+// Override validation belongs to the caller; weights apply only to this calculation.
+function calculateFinalScore(state, { weights = SCORING_WEIGHTS } = {}) {
     validateScoringState(state);
 
     const availableFactors = CANONICAL_FACTORS.filter(
         (factor) => state.factors[factor].available === true
     );
     const availableWeight = availableFactors.reduce(
-        (total, factor) => total + SCORING_WEIGHTS[factor],
+        (total, factor) => total + weights[factor],
         0
     );
 
-    if (availableFactors.length === 0) {
+    if (availableWeight === 0) {
         return {
             available: false,
             score: null,
             availableWeight: 0,
-            availableFactorCount: 0,
+            availableFactorCount: availableFactors.length,
             contributions: []
         };
     }
 
     const contributions = availableFactors.map((factor) => {
         const factorResult = state.factors[factor];
-        const canonicalWeight = SCORING_WEIGHTS[factor];
+        const canonicalWeight = weights[factor];
         const normalizedWeight = canonicalWeight / availableWeight;
 
         return {
