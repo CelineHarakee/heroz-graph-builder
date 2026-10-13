@@ -1,0 +1,801 @@
+{
+  "provenance": "Extracted from accepted complete D6 search (8856 evaluations; independently repeated with identical result), not from a fresh D7 benchmark.",
+  "sourceD6Sha256": "21736fcd2be131f4d9b628aae3ec4cdbb8012391d6df6fe7160492fbdb99efc4",
+  "datasetVersion": "evaluation-dataset-v1",
+  "evaluatedAt": "2026-10-11T10:00:00.000Z",
+  "requestedKs": [
+    1,
+    3,
+    5
+  ],
+  "baselineRawSha256": "59cc3248b196068b999bb3fc16dc3bb0561164bfd35049e853921c6ec084d655",
+  "controlRawSha256": "14f75f5200eb4c0142a8c477290108ed4b8727c80cdc36dea707f0f9cabd9ca0",
+  "datasetSha256": "31362e986e9c34c9b4fecf3e1d5526e1ddf5e03577b8ec921e09cf0fd15828d5",
+  "candidate": {
+    "candidateId": "D6_CAND_6762",
+    "weights": {
+      "interest": 0.25,
+      "preference": 0.1,
+      "goal": 0.15,
+      "exploration": 0.05,
+      "behavior": 0.4,
+      "session": 0.05
+    },
+    "metrics": {
+      "caseCount": 12,
+      "recommendationCoverage": 1,
+      "metricsByK": {
+        "1": {
+          "relevance": {
+            "value": 1,
+            "applicableCases": 12
+          },
+          "ndcg": {
+            "value": 0.8333333333333334,
+            "applicableCases": 12
+          },
+          "diversity": {
+            "value": null,
+            "applicableCases": 0
+          }
+        },
+        "3": {
+          "relevance": {
+            "value": 0.9444444444444443,
+            "applicableCases": 12
+          },
+          "ndcg": {
+            "value": 0.86515873045431,
+            "applicableCases": 12
+          },
+          "diversity": {
+            "value": 0.6527777777777777,
+            "applicableCases": 12
+          }
+        },
+        "5": {
+          "relevance": {
+            "value": 0.9,
+            "applicableCases": 12
+          },
+          "ndcg": {
+            "value": 0.9065627547310413,
+            "applicableCases": 12
+          },
+          "diversity": {
+            "value": 0.7708333333333334,
+            "applicableCases": 12
+          }
+        }
+      },
+      "explorationRelevanceRate": {
+        "value": 1,
+        "applicableCases": 12
+      }
+    },
+    "profileMetrics": {
+      "COLD_START": {
+        "caseCount": 4,
+        "recommendationCoverage": 1,
+        "metricsByK": {
+          "1": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.7857142857142857,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": null,
+              "applicableCases": 0
+            }
+          },
+          "3": {
+            "relevance": {
+              "value": 0.8333333333333333,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.7709792998276583,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.625,
+              "applicableCases": 4
+            }
+          },
+          "5": {
+            "relevance": {
+              "value": 0.75,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.8277906070526714,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.875,
+              "applicableCases": 4
+            }
+          }
+        },
+        "explorationRelevanceRate": {
+          "value": 1,
+          "applicableCases": 4
+        }
+      },
+      "PARTIAL_KNOWLEDGE": {
+        "caseCount": 4,
+        "recommendationCoverage": 1,
+        "metricsByK": {
+          "1": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.7142857142857143,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": null,
+              "applicableCases": 0
+            }
+          },
+          "3": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.8769309287393683,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.6666666666666667,
+              "applicableCases": 4
+            }
+          },
+          "5": {
+            "relevance": {
+              "value": 0.95,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.9164219365734136,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.6875000000000001,
+              "applicableCases": 4
+            }
+          }
+        },
+        "explorationRelevanceRate": {
+          "value": 1,
+          "applicableCases": 4
+        }
+      },
+      "RICH_KNOWLEDGE": {
+        "caseCount": 4,
+        "recommendationCoverage": 1,
+        "metricsByK": {
+          "1": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": null,
+              "applicableCases": 0
+            }
+          },
+          "3": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.9475659627959034,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.6666666666666667,
+              "applicableCases": 4
+            }
+          },
+          "5": {
+            "relevance": {
+              "value": 1,
+              "applicableCases": 4
+            },
+            "ndcg": {
+              "value": 0.9754757205670384,
+              "applicableCases": 4
+            },
+            "diversity": {
+              "value": 0.75,
+              "applicableCases": 4
+            }
+          }
+        },
+        "explorationRelevanceRate": {
+          "value": 1,
+          "applicableCases": 4
+        }
+      }
+    },
+    "caseResults": [
+      {
+        "caseId": "C1",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000500066",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500067",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500068",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500069",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500064",
+            "score": 0.625
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 0.14285714285714285,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 0.3333333333333333,
+            "ndcg": 0.08391719931063304,
+            "diversity": 1
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 0.4,
+            "ndcg": 0.3111624282106856,
+            "diversity": 0.95
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "C2",
+        "recommendations": [
+          {
+            "activityId": "00000000000000000050044c",
+            "score": 1
+          },
+          {
+            "activityId": "00000000000000000050044d",
+            "score": 1
+          },
+          {
+            "activityId": "00000000000000000050044e",
+            "score": 0.7777777777777777
+          },
+          {
+            "activityId": "00000000000000000050044f",
+            "score": 0.7777777777777777
+          },
+          {
+            "activityId": "000000000000000000500450",
+            "score": 0.7777777777777777
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.3333333333333333
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.8
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "C3",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000500834",
+            "score": 0.9999999999999999
+          },
+          {
+            "activityId": "000000000000000000500835",
+            "score": 0.9999999999999999
+          },
+          {
+            "activityId": "000000000000000000500836",
+            "score": 0.9999999999999999
+          },
+          {
+            "activityId": "000000000000000000500837",
+            "score": 0.25
+          },
+          {
+            "activityId": "000000000000000000500838",
+            "score": 0.25
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.8333333333333334
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 0.6,
+            "ndcg": 1,
+            "diversity": 0.95
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "C4",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000500c1c",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500c1d",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500c1e",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500c1f",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000500c20",
+            "score": 1
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.3333333333333333
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.8
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "P1",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000501004",
+            "score": 0.925
+          },
+          {
+            "activityId": "000000000000000000501005",
+            "score": 0.925
+          },
+          {
+            "activityId": "000000000000000000501006",
+            "score": 0.925
+          },
+          {
+            "activityId": "000000000000000000501008",
+            "score": 0.8416666666666668
+          },
+          {
+            "activityId": "000000000000000000501007",
+            "score": 0.7777777777777777
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.3333333333333333
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.55
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "P2",
+        "recommendations": [
+          {
+            "activityId": "0000000000000000005013ef",
+            "score": 0.9999999999999999
+          },
+          {
+            "activityId": "0000000000000000005013ec",
+            "score": 0.888888888888889
+          },
+          {
+            "activityId": "0000000000000000005013ee",
+            "score": 0.5555555555555556
+          },
+          {
+            "activityId": "0000000000000000005013f0",
+            "score": 0.5555555555555556
+          },
+          {
+            "activityId": "0000000000000000005013f1",
+            "score": 0.25
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 0.42857142857142855,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 0.8579514172105233,
+            "diversity": 0.6666666666666666
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 0.8,
+            "ndcg": 0.8636036727577974,
+            "diversity": 0.8
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "P3",
+        "recommendations": [
+          {
+            "activityId": "0000000000000000005017d5",
+            "score": 1
+          },
+          {
+            "activityId": "0000000000000000005017d7",
+            "score": 0.875
+          },
+          {
+            "activityId": "0000000000000000005017d4",
+            "score": 0.7916666666666667
+          },
+          {
+            "activityId": "0000000000000000005017d8",
+            "score": 0.7777777777777777
+          },
+          {
+            "activityId": "0000000000000000005017d6",
+            "score": 0.625
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 0.9594535145926796,
+            "diversity": 0.8333333333333334
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 0.9581123571019741,
+            "diversity": 0.8
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "P4",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000501bbf",
+            "score": 1
+          },
+          {
+            "activityId": "000000000000000000501bbc",
+            "score": 0.9375
+          },
+          {
+            "activityId": "000000000000000000501bbe",
+            "score": 0.9375
+          },
+          {
+            "activityId": "000000000000000000501bbd",
+            "score": 0.875
+          },
+          {
+            "activityId": "000000000000000000501bc0",
+            "score": 0.625
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 0.42857142857142855,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 0.6903187831542703,
+            "diversity": 0.8333333333333334
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 0.8439717164338832,
+            "diversity": 0.6
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "R1",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000501fa4",
+            "score": 0.9736842105263157
+          },
+          {
+            "activityId": "000000000000000000501fa5",
+            "score": 0.9736842105263157
+          },
+          {
+            "activityId": "000000000000000000501fa6",
+            "score": 0.9545454545454545
+          },
+          {
+            "activityId": "000000000000000000501fa7",
+            "score": 0.5
+          },
+          {
+            "activityId": "000000000000000000501fa8",
+            "score": 0.23333333333333336
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.3333333333333333
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.8
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "R2",
+        "recommendations": [
+          {
+            "activityId": "00000000000000000050238c",
+            "score": 0.96875
+          },
+          {
+            "activityId": "00000000000000000050238d",
+            "score": 0.9375
+          },
+          {
+            "activityId": "00000000000000000050238e",
+            "score": 0.9375
+          },
+          {
+            "activityId": "00000000000000000050238f",
+            "score": 0.8750000000000001
+          },
+          {
+            "activityId": "000000000000000000502390",
+            "score": 0.8750000000000001
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.6666666666666666
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": 0.7
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "R3",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000502774",
+            "score": 0.9375
+          },
+          {
+            "activityId": "000000000000000000502777",
+            "score": 0.9375
+          },
+          {
+            "activityId": "000000000000000000502775",
+            "score": 0.90625
+          },
+          {
+            "activityId": "000000000000000000502778",
+            "score": 0.8250000000000001
+          },
+          {
+            "activityId": "000000000000000000502776",
+            "score": 0.7250000000000001
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 0.9594535145926796,
+            "diversity": 0.8333333333333334
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 0.9581123571019741,
+            "diversity": 0.75
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      },
+      {
+        "caseId": "R4",
+        "recommendations": [
+          {
+            "activityId": "000000000000000000502b5e",
+            "score": 0.8818181818181818
+          },
+          {
+            "activityId": "000000000000000000502b5f",
+            "score": 0.8
+          },
+          {
+            "activityId": "000000000000000000502b5d",
+            "score": 0.7947368421052632
+          },
+          {
+            "activityId": "000000000000000000502b60",
+            "score": 0.690909090909091
+          },
+          {
+            "activityId": "000000000000000000502b5c",
+            "score": 0.6181818181818183
+          }
+        ],
+        "metricsByK": {
+          "1": {
+            "effectiveK": 1,
+            "relevance": 1,
+            "ndcg": 1,
+            "diversity": null
+          },
+          "3": {
+            "effectiveK": 3,
+            "relevance": 1,
+            "ndcg": 0.8308103365909342,
+            "diversity": 0.8333333333333334
+          },
+          "5": {
+            "effectiveK": 5,
+            "relevance": 1,
+            "ndcg": 0.9437905251661792,
+            "diversity": 0.75
+          }
+        },
+        "recommendationCoverage": 1,
+        "explorationRelevanceRate": 1
+      }
+    ]
+  }
+}
