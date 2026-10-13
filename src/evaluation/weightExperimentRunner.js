@@ -39,10 +39,11 @@ function wrap(result) {
         evaluatedAt: result.evaluatedAt, requestedKs: result.requestedKs, metrics: result.overall,
         byProfileState: result.segments, caseResults: result.cases, execution: result.execution };
 }
-async function runExperiment(input) {
+async function runExperiment(input, { baseline: precomputedBaseline } = {}) {
     // All validation and copying happens before the first worker is started.
     const experiment = validateExperiment(input);
-    const baseline = await runBaseline();
+    // Search callers may reuse an untouched official D3 result for every run.
+    const baseline = precomputedBaseline === undefined ? await runBaseline() : precomputedBaseline;
     const experimental = await runConfiguredEvaluation({ id: experiment.experimentId, weights: experiment.submittedWeights });
     return { experiment, baseline: wrap(baseline), experimental: wrap(experimental), comparison: {
         overall: compareMetrics(baseline.overall, experimental.overall, baseline.requestedKs, true),
