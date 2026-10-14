@@ -1,3 +1,4 @@
+const { observeOperation, learningOutcome } = require("../observability/structuredLogger");
 const { ObjectId } = require("mongodb");
 const { toMongoId, toGraphId } = require("../utils/idUtils");
 const { processLearningSource } = require("./learningEventProcessor");
@@ -206,4 +207,6 @@ async function processContinuousLearningSource(sourceType, document, options = {
     return { status: "COMPLETED", sourceType, results };
 }
 
-module.exports = { processContinuousLearningSource };
+module.exports = { processContinuousLearningSource: (...args) => observeOperation({
+    component: "ContinuousLearning", operation: "processSource", outcomeOf: learningOutcome
+}, () => processContinuousLearningSource(...args)) };

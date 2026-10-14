@@ -1,3 +1,5 @@
+const { instrumentApi } = require("../../observability/structuredLogger");
+const { captureFailure } = require("../../observability/traceContext");
 const { API_BASE_PATH } = require("./index");
 const { requireIdentifier } = require("../requestValidation");
 const { successResponse, errorResponse } = require("../apiResponse");
@@ -13,8 +15,9 @@ async function handleChildIntelligence(childId, options = {}) {
         const data = await getChildIntelligence(childId, options);
         return { status: 200, body: successResponse(data) };
     } catch (error) {
+        captureFailure(error);
         return errorResponse(error);
     }
 }
 
-module.exports = { METHOD, PATH, handleChildIntelligence };
+module.exports = { METHOD, PATH, handleChildIntelligence: instrumentApi(handleChildIntelligence, "handleChildIntelligence", 1) };

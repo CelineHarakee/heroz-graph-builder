@@ -6,7 +6,8 @@ const { normalizeInteraction } = require("../learning/eventNormalizer");
 const { validateEvent } = require("../learning/eventValidator");
 const { processContinuousLearningSource } = require("../learning/continuousLearningService");
 const root = path.resolve(__dirname, "..");
-const allowed = new Set(["api/v1/interactions.js", "services/interactionSubmissionService.js",
+const allowed = new Set([
+    "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js","api/v1/interactions.js", "services/interactionSubmissionService.js",
     "api/v1/index.js", "api/apiError.js", "api/apiResponse.js", "api/requestValidation.js", "utils/idUtils.js"
 ].map(file => path.join(root, file)));
 const enginePath = path.join(root, "learning/continuousLearningService.js");
@@ -14,7 +15,7 @@ const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
     if (parent && allowed.has(parent.filename)) {
         const resolved = Module._resolveFilename(request, parent);
-        assert.ok(allowed.has(resolved) || resolved === enginePath || request === "mongodb", `Forbidden API dependency: ${request}`);
+        assert.ok(allowed.has(resolved) || resolved === enginePath || ["mongodb", "node:async_hooks", "node:crypto"].includes(request), `Forbidden API dependency: ${request}`);
     }
     return originalLoad.call(this, request, parent, isMain);
 };

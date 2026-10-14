@@ -1,3 +1,5 @@
+const { observeOperation } = require("../observability/structuredLogger");
+const { runBackground, currentTrace } = require("../observability/traceContext");
 const { getDatabase } = require("../config/mongodb");
 const graphBuilderService = require("../services/graphBuilderService");
 
@@ -6,7 +8,7 @@ const { toMongoId } = require("../utils/idUtils");
 
 // No options preserves normal queue consumption. Explicit IDs only narrow it;
 // invalid input fails before any database access and an empty list selects none.
-async function processQueue(options = {}) {
+async function processQueue(options = {}, observation = {}) {
     if (options === null || typeof options !== "object" || Array.isArray(options) ||
         ![Object.prototype, null].includes(Object.getPrototypeOf(options)) ||
         Reflect.ownKeys(options).some(key => key !== "jobIds")) {
@@ -32,57 +34,31 @@ async function processQueue(options = {}) {
 
     const pendingJobs = await queue.find(filter).toArray();
 
-    console.log(`📦 Found ${pendingJobs.length} pending jobs`);
 
     for (const job of pendingJobs) {
-
-        console.log("--------------------------------");
-
-        console.log("Job ID:", job._id);
-        console.log("Entity:", job.entityType);
-        console.log("Operation:", job.operation);
-        console.log("Status:", job.status);
-
+        let traceOptions;
         try {
-
-            await graphBuilderService.process(job);
-
-            await queue.updateOne(
-                { _id: job._id },
-                {
-                    $set: {
-                        status: "PROCESSED",
-                        processedAt: new Date()
-                    }
-                }
-            );
-
-            console.log("✅ Job marked as PROCESSED");
-
-        } catch (error) {
-
-            console.error("❌ Job processing failed");
-            console.error(error);
-
-            await queue.updateOne(
-                { _id: job._id },
-                {
-                    $set: {
-                        status: "FAILED",
-                        error: error.message,
-                        failedAt: new Date()
-                    }
-                }
-            );
-
-            console.log("⚠️ Job marked as FAILED");
-
-        }
-
+            traceOptions = { ...observation, correlationId: observation?.correlationId ?? job.correlationId ?? currentTrace()?.correlationId };
+        } catch (_) { traceOptions = {}; }
+        await runBackground(async () => {
+            try {
+                await observeOperation({
+                    component: "GraphSync", operation: "processJob", context: { jobId: String(job._id) }
+                }, async () => {
+                    await graphBuilderService.process(job);
+                    await queue.updateOne(
+                        { _id: job._id },
+                        { $set: { status: "PROCESSED", processedAt: new Date() } }
+                    );
+                });
+            } catch (error) {
+                await queue.updateOne(
+                    { _id: job._id },
+                    { $set: { status: "FAILED", error: error.message, failedAt: new Date() } }
+                );
+            }
+        }, traceOptions);
     }
-
 }
 
-module.exports = {
-    processQueue
-};
+module.exports = { processQueue };

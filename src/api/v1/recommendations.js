@@ -1,3 +1,5 @@
+const { instrumentApi } = require("../../observability/structuredLogger");
+const { captureFailure } = require("../../observability/traceContext");
 const { ObjectId } = require("mongodb");
 const { toMongoId } = require("../../utils/idUtils");
 const { API_BASE_PATH } = require("./index");
@@ -48,8 +50,9 @@ async function handleRecommendations(childId, limit, options = {}) {
             })
         };
     } catch (error) {
+        captureFailure(error);
         return errorResponse(error);
     }
 }
 
-module.exports = { METHOD, PATH, handleRecommendations };
+module.exports = { METHOD, PATH, handleRecommendations: instrumentApi(handleRecommendations, "handleRecommendations", 2) };

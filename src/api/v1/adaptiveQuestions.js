@@ -1,3 +1,5 @@
+const { instrumentApi } = require("../../observability/structuredLogger");
+const { captureFailure } = require("../../observability/traceContext");
 const { ObjectId } = require("mongodb");
 const { toMongoId } = require("../../utils/idUtils");
 const { API_BASE_PATH } = require("./index");
@@ -25,8 +27,9 @@ async function handleNextQuestion(childId, body, options = {}) {
         const data = await getNextQuestion(childId, body.activityId, body.sessionId, options);
         return { status: 200, body: successResponse(data) };
     } catch (error) {
+        captureFailure(error);
         return errorResponse(error);
     }
 }
 
-module.exports = { METHOD, PATH, handleNextQuestion };
+module.exports = { METHOD, PATH, handleNextQuestion: instrumentApi(handleNextQuestion, "handleNextQuestion", 2) };

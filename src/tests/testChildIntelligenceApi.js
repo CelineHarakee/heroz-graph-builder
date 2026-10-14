@@ -5,6 +5,7 @@ const { ObjectId } = require("mongodb");
 
 const root = path.resolve(__dirname, "..");
 const allowed = new Set([
+    "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js",
     "api/v1/childIntelligence.js", "api/v1/index.js", "api/apiError.js",
     "api/apiResponse.js", "api/requestValidation.js",
     "services/childIntelligenceService.js", "utils/idUtils.js"
@@ -13,7 +14,7 @@ const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
     if (parent && allowed.has(parent.filename)) {
         const resolved = Module._resolveFilename(request, parent);
-        assert.ok(allowed.has(resolved) || request === "mongodb",
+        assert.ok(allowed.has(resolved) || ["mongodb", "node:async_hooks", "node:crypto"].includes(request),
             `Unexpected dependency: ${request}`);
     }
     return originalLoad.call(this, request, parent, isMain);

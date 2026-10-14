@@ -1,3 +1,5 @@
+const { instrumentApi } = require("../../observability/structuredLogger");
+const { captureFailure } = require("../../observability/traceContext");
 const { ObjectId } = require("mongodb");
 const { toMongoId } = require("../../utils/idUtils");
 const { API_BASE_PATH } = require("./index");
@@ -32,8 +34,9 @@ async function handleInteraction(childId, body, options = {}) {
         const data = await submitInteraction(childId, body, options);
         return { status: 200, body: successResponse(data) };
     } catch (error) {
+        captureFailure(error);
         return errorResponse(error);
     }
 }
 
-module.exports = { METHOD, PATH, handleInteraction };
+module.exports = { METHOD, PATH, handleInteraction: instrumentApi(handleInteraction, "handleInteraction", 2) };
