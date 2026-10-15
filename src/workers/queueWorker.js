@@ -8,13 +8,24 @@ const { toMongoId } = require("../utils/idUtils");
 
 // No options preserves normal queue consumption. Explicit IDs only narrow it;
 // invalid input fails before any database access and an empty list selects none.
+// retryFailed selects only FAILED jobs and requires explicit jobIds. Each job
+// gets one attempt; graph projection rereads Mongo and reuses MERGE identities.
 async function processQueue(options = {}, observation = {}) {
     if (options === null || typeof options !== "object" || Array.isArray(options) ||
         ![Object.prototype, null].includes(Object.getPrototypeOf(options)) ||
-        Reflect.ownKeys(options).some(key => key !== "jobIds")) {
-        throw new TypeError("processQueue options must contain only optional jobIds");
+        Reflect.ownKeys(options).some(key => !["jobIds", "retryFailed"].includes(key))) {
+        throw new TypeError("processQueue options must contain only optional jobIds and retryFailed");
+    }
+    // Recovery is explicit and restricted to existing identities. Normal queue
+    // consumption never sweeps failures or repeats a job within this invocation.
+    if (Object.hasOwn(options, "retryFailed") && typeof options.retryFailed !== "boolean") {
+        throw new TypeError("retryFailed must be boolean");
+    }
+    if (options.retryFailed && !Object.hasOwn(options, "jobIds")) {
+        throw new TypeError("retryFailed requires exact jobIds");
     }
     const filter = { status: "PENDING" };
+    if (options.retryFailed) filter.status = "FAILED";
     if (Object.hasOwn(options, "jobIds")) {
         if (!Array.isArray(options.jobIds)) throw new TypeError("jobIds must be an array of ObjectIds or 24-character hex strings");
         const ids = new Map();
