@@ -1,5 +1,6 @@
 const { FAILURE_CATEGORY, STATE_STATUS } = require("../reliability/reliabilityFailure");
 const { currentObservation, currentTrace, runRequest, validId } = require("./traceContext");
+const { startMetric } = require("./runtimeMetrics");
 const LEVEL = Object.freeze({ INFO:"INFO", WARN:"WARN", ERROR:"ERROR", DEBUG:"DEBUG" });
 const EVENT = Object.freeze({ OPERATION_STARTED:"OPERATION_STARTED", OPERATION_COMPLETED:"OPERATION_COMPLETED", OPERATION_FAILED:"OPERATION_FAILED", OPERATION_DEGRADED:"OPERATION_DEGRADED" });
 const OUTCOME = Object.freeze({ SUCCESS:"SUCCESS", FAILURE:"FAILURE", DEGRADED:"DEGRADED" });
@@ -67,16 +68,19 @@ function emitSafely(input) {
     } catch (_) { /* logging is never business execution */ }
 }
 async function observeOperation({ component, operation, context, outcomeOf = () => OUTCOME.SUCCESS }, task) {
+    const finishMetric = startMetric(component, operation);
     const base = { component, operation, context };
     emitSafely({ ...base,level:LEVEL.INFO,event:EVENT.OPERATION_STARTED,outcome:OUTCOME.SUCCESS,message:"Operation started." });
     let result;
     try { result = await task(); }
     catch (failure) {
+        finishMetric(OUTCOME.FAILURE);
         emitSafely({ ...base,level:LEVEL.ERROR,event:EVENT.OPERATION_FAILED,outcome:OUTCOME.FAILURE,message:"Operation failed.",failure });
         throw failure;
     }
     let outcome;
     try { outcome = outcomeOf(result); } catch (_) { return result; }
+    finishMetric(outcome);
     const event = outcome === OUTCOME.FAILURE ? EVENT.OPERATION_FAILED : outcome === OUTCOME.DEGRADED ? EVENT.OPERATION_DEGRADED : EVENT.OPERATION_COMPLETED;
     emitSafely({ ...base,level:outcome === OUTCOME.FAILURE ? LEVEL.ERROR : outcome === OUTCOME.DEGRADED ? LEVEL.WARN : LEVEL.INFO,
         event,outcome,message:outcome === OUTCOME.FAILURE ? "Operation failed." : outcome === OUTCOME.DEGRADED ? "Operation degraded." : "Operation completed.",

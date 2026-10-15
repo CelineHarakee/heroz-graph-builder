@@ -4,7 +4,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "../..");
 const allowed = new Set([
     "api/v1/health.js", "api/v1/index.js", "api/apiResponse.js", "api/apiError.js",
-    "services/healthService.js", "observability/structuredLogger.js",
+    "services/healthService.js", "observability/runtimeMetrics.js", "observability/structuredLogger.js",
     "observability/traceContext.js", "reliability/reliabilityFailure.js"
 ].map(file => path.join(root, file)));
 const originalLoad = Module._load;

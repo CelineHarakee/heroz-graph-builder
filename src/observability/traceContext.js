@@ -20,12 +20,18 @@ function runRequest(task, options = {}) {
     let observation;
     try { observation = { trace: createRequestTrace(options), logger: options.logger }; }
     catch (_) { observation = {}; } // Clear any parent request if setup fails.
+    try { observation.metrics = options.metrics; observation.metricNow = options.metricNow; }
+    catch (_) { /* optional metrics cannot affect tracing setup */ }
     return storage.run(observation, task);
 }
 function runBackground(task, options = {}) {
     let observation;
     try { observation = { trace: createBackgroundTrace(options), logger: options.logger ?? currentObservation()?.logger }; }
     catch (_) { observation = {}; }
+    try {
+        observation.metrics = options.metrics === undefined ? currentObservation()?.metrics : options.metrics;
+        observation.metricNow = options.metricNow ?? currentObservation()?.metricNow;
+    } catch (_) { /* optional metrics cannot affect tracing setup */ }
     return storage.run(observation, task); // Never inherit an active HTTP requestId.
 }
 function captureFailure(failure) {

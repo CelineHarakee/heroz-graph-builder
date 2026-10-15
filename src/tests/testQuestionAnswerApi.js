@@ -4,7 +4,7 @@ const path = require("node:path");
 const { ObjectId } = require("mongodb");
 const root = path.resolve(__dirname, "..");
 const allowed = new Set([
-    "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js",
+    "observability/runtimeMetrics.js", "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js",
     "api/v1/questionAnswers.js", "api/v1/index.js", "api/apiError.js", "api/apiResponse.js",
     "api/requestValidation.js", "services/questionAnswerSubmissionService.js", "utils/idUtils.js"
 ].map(file => path.join(root, file)));

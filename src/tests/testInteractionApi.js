@@ -7,7 +7,7 @@ const { validateEvent } = require("../learning/eventValidator");
 const { processContinuousLearningSource } = require("../learning/continuousLearningService");
 const root = path.resolve(__dirname, "..");
 const allowed = new Set([
-    "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js","api/v1/interactions.js", "services/interactionSubmissionService.js",
+    "observability/runtimeMetrics.js", "observability/structuredLogger.js", "observability/traceContext.js", "reliability/reliabilityFailure.js","api/v1/interactions.js", "services/interactionSubmissionService.js",
     "api/v1/index.js", "api/apiError.js", "api/apiResponse.js", "api/requestValidation.js", "utils/idUtils.js"
 ].map(file => path.join(root, file)));
 const enginePath = path.join(root, "learning/continuousLearningService.js");
